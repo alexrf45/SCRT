@@ -1,8 +1,9 @@
 return {
-	"RRethy/base16-nvim",
+	"IlyasYOY/theme.nvim",
+	dependencies = "tjdevries/colorbuddy.nvim",
 	lazy = false,
 	priority = 1000,
 	config = function()
-		vim.cmd.colorscheme("base16-dracula")
+		vim.cmd.colorscheme("ilyasyoy")
 	end,
 }

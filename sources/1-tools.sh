@@ -2,11 +2,16 @@
 
 web() {
   sudo apt-get install -y \
-    whatweb ffuf \
-    sqlmap exiftool \
+    --no-install-recommends \
+    burpsuite \
     default-mysql-client \
-    hurl postgresql \
-    sqsh burpsuite
+    exiftool \
+    ffuf \
+    hurl \
+    postgresql \
+    sqlmap \
+    sqsh \
+    whatweb
 }
 
 web-server() {
@@ -23,7 +28,9 @@ web-server() {
 }
 
 password() {
-  sudo apt-get install -y crunch
+  sudo apt-get install -y \
+    --no-install-recommends \
+    crunch
 }
 
 payload() {
