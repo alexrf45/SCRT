@@ -17,7 +17,7 @@ jobs:
         with:
           status: starting
           channel: '#docker-build'
-          message: Starting gr3ysh3ll main build and push...
+          message: Starting toolkit main build and push...
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -35,7 +35,7 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           push: true
-          tags: fonalex45/gr3ysh3ll:latest
+          tags: fonalex45/toolkit:latest
       -
         name: Notify Slack Channel of finished build
         uses: act10ns/slack@v2

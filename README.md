@@ -1,32 +1,34 @@
-# gr3ysh3ll
+# toolkit
 
-![GitHub Release](https://img.shields.io/github/v/release/alexrf45/gr3ysh3ll?display_name=tag&style=plastic)
-  ![Logo](https://img.shields.io/docker/image-size/fonalex45/gr3ysh3ll) ![Logo](https://img.shields.io/docker/pulls/fonalex45/gr3ysh3ll)
+![GitHub Release](https://img.shields.io/github/v/release/alexrf45/toolkit?display_name=tag&style=plastic)
+![Logo](https://img.shields.io/docker/image-size/fonalex45/toolkit) ![Logo](https://img.shields.io/docker/pulls/fonalex45/gr3ysh3ll)
 
-> **gr3ysh3ll** — a disposable, flexible, and repeatable container environment for security researchers, analysts, and enthusiasts.  
+> **toolkit** — a disposable, flexible, and repeatable container environment for security researchers, analysts, and enthusiasts.  
 > **Launch anywhere. Burn after use. Repeat.**
 
 ---
 
-## 🚀 What is gr3ysh3ll?
+## What is toolkit?
 
-**gr3ysh3ll** is a containerized security research environment designed for offensive and defensive operations. Whether you're doing recon, exploitation, analysis, or tool testing, `gr3ysh3ll` gives you:
+**toolkit** is a containerized security research environment designed for offensive and defensive operations. Whether you're doing recon, exploitation, analysis, or tool testing, `toolkit` gives you:
 
-- 🐳 **Containerized environments** — consistent environments every time
-- 🔁 **Burnable instances** — throwaway containers that keep the host OS clean
-- ☁️ **Portable deployments** — run it locally, in the cloud or kubernetes
+- **Containerized environments** — consistent environments every time
+- **Burnable instances** — throwaway containers that keep the host OS clean
+- ☁️**Portable deployments** — run it locally, in the cloud or kubernetes
+  \*\*> [!NOTE]
+  > container image has not been tested on K8s.
 
 ---
 
-## 📦 Features
+## Features
 
 - Lightweight base image with common pentesting utilities
 - Persistant containers, volumes and workspaces
 - ZSH-powered shell with rich prompt
 - Pre-configured Tmux configuration
 - GUI apps such as burpsuite and firefox
-- Bash script executable (Docker compose in the works)
-- Cloud-ready: works on EC2, GCP, or K8s
+- Bash script executable
+- Cloud-ready: works on any cloud providers
 
 ---
 
@@ -34,14 +36,14 @@
 
 ### 🔧 Requirements
 
-- Docker or Podman
+- Docker
 - (Optional) Docker Compose
 - Bash or ZSH
 
 ### 📥 Pull the Image
 
 ```bash
-docker pull fonalex45/gr3ysh3ll:latest
+docker pull fonalex45/toolkit:latest
 
 ```
 
