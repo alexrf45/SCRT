@@ -34,13 +34,12 @@
 
 ## 🛠️ Getting Started
 
-### 🔧 Requirements
+### Requirements
 
 - Docker
-- (Optional) Docker Compose
 - Bash or ZSH
 
-### 📥 Pull the Image
+### Pull the Image
 
 ```bash
 docker pull fonalex45/toolkit:latest
