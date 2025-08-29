@@ -61,7 +61,8 @@ main_tools() {
     jq \
     mkcert \
     neovim \
-    fastfetch
+    fastfetch \
+    starship
 }
 
 network() {
