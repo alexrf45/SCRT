@@ -427,7 +427,7 @@ main() {
     pull_image "${2:-}"
     ;;
   "dev")
-    pull_image "fonalex45/gr3ysh3ll:dev"
+    pull_image "fonalex45/toolkit:dev"
     ;;
   "list")
     list_containers
