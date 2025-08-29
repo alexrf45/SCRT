@@ -7,9 +7,7 @@ A modern Python wrapper for managing security research containers with TUI and C
 import os
 import sys
 import json
-import time
 import shutil
-import zipfile
 import tarfile
 import argparse
 import subprocess
@@ -17,7 +15,6 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Tuple
 from dataclasses import dataclass, field, asdict
-from enum import Enum
 
 # Check for required packages
 try:
@@ -43,15 +40,15 @@ except ImportError:
     sys.exit(1)
 
 # Optional TUI package
-try:
-    from textual.app import App, ComposeResult
-    from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
-    from textual.widgets import Header, Footer, Button, Static, Input, Select, ListView, ListItem, Label
-    from textual.screen import Screen
-    from textual import events
-    TEXTUAL_AVAILABLE = True
-except ImportError:
-    TEXTUAL_AVAILABLE = False
+# try:
+#     from textual.app import App, ComposeResult
+#     from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
+#     from textual.widgets import Header, Footer, Button, Static, Input, Select, ListView, ListItem, Label
+#     from textual.screen import Screen
+#     from textual import events
+#     TEXTUAL_AVAILABLE = True
+# except ImportError:
+#     TEXTUAL_AVAILABLE = False
 
 console = Console()
 
@@ -441,67 +438,6 @@ class DockerManager:
         return True
 
 
-# TUI Implementation
-if TEXTUAL_AVAILABLE:
-    class MainMenu(Screen):
-        """Main menu screen for TUI"""
-
-        def compose(self) -> ComposeResult:
-            yield Header(show_clock=True)
-            yield Container(
-                Static(
-                    "[bold cyan]Security Research Container Manager[/]", classes="title"),
-                Static(""),
-                Button("Start New Container", id="start", variant="primary"),
-                Button("Enter Container", id="enter", variant="primary"),
-                Button("Stop Container", id="stop", variant="warning"),
-                Button("Destroy Container", id="destroy", variant="error"),
-                Button("Backup Project", id="backup", variant="default"),
-                Button("List Containers", id="list", variant="default"),
-                Button("Pull Image", id="pull", variant="default"),
-                Button("Configuration", id="config", variant="default"),
-                Button("Exit", id="exit", variant="error"),
-                id="menu"
-            )
-            yield Footer()
-
-        def on_button_pressed(self, event: Button.Pressed) -> None:
-            if event.button.id == "exit":
-                self.app.exit()
-            else:
-                self.app.push_screen(event.button.id)
-
-    class ContainerTUI(App):
-        """Main TUI application"""
-        CSS = """
-        .title {
-            text-align: center;
-            padding: 1;
-            color: cyan;
-        }
-        
-        #menu {
-            align: center middle;
-            width: 50;
-            height: auto;
-            border: solid cyan;
-            padding: 2;
-        }
-        
-        Button {
-            width: 100%;
-            margin: 1 0;
-        }
-        """
-
-        def __init__(self, docker_manager: DockerManager):
-            super().__init__()
-            self.docker_manager = docker_manager
-
-        def on_mount(self) -> None:
-            self.push_screen(MainMenu())
-
-
 class CLI:
     """Command Line Interface"""
 
@@ -621,9 +557,6 @@ class CLI:
         # Config command
         subparsers.add_parser('config', help='Manage configuration')
 
-        # TUI command
-        subparsers.add_parser('tui', help='Launch TUI interface')
-
         args = parser.parse_args()
 
         if not args.command:
@@ -684,14 +617,6 @@ class CLI:
         elif args.command == 'config':
             self.manage_config()
 
-        elif args.command == 'tui':
-            if TEXTUAL_AVAILABLE:
-                app = ContainerTUI(self.docker_manager)
-                app.run()
-            else:
-                console.print(
-                    f"[{Colors.ERROR}]TUI not available. Install textual: pip install textual[/]")
-
     def manage_config(self):
         """Interactive configuration management"""
         console.print(f"\n[{Colors.HEADER}]Configuration Management[/]")
@@ -736,15 +661,6 @@ def main():
     if len(sys.argv) == 1:
         cli.show_banner()
 
-        # If TUI is available, ask user for preference
-        if TEXTUAL_AVAILABLE:
-            console.print(f"\n[{Colors.INFO}]TUI interface is available![/]")
-            if Confirm.ask("Launch TUI interface?", default=True):
-                app = ContainerTUI(cli.docker_manager)
-                app.run()
-                return
-
-        # Show help if TUI not chosen or not available
         console.print(f"\n[{Colors.INFO}]Run with --help for CLI usage[/]")
     else:
         cli.run_cli()
