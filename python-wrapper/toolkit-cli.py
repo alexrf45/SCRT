@@ -468,62 +468,8 @@ if TEXTUAL_AVAILABLE:
         def on_button_pressed(self, event: Button.Pressed) -> None:
             if event.button.id == "exit":
                 self.app.exit()
-            elif event.button.id == "list":
-                # Handle list directly
-                containers = self.app.docker_manager.list_containers()
-                # Display results
-                self.app.exit()
             else:
-                # For now, exit TUI and suggest CLI
-                console.print(
-                    f"[yellow]'{event.button.id}' operation not yet implemented in TUI.[/]")
-                console.print(
-                    "[info]Please use CLI mode. Example: ./toolkit.py {event.button.id} <project>[/]")
-                self.app.exit()
-
-
-if TEXTUAL_AVAILABLE:
-    class StartScreen(Screen):
-        """Screen for starting a new container"""
-
-        def compose(self) -> ComposeResult:
-            yield Header()
-            yield Container(
-                Static("Start New Container", classes="title"),
-                Input(placeholder="Project name", id="project_name"),
-                Button("Select Docker Tag", id="select_tag"),
-                Static("", id="selected_tag"),
-                Button("Start", variant="primary", id="start_container"),
-                Button("Back", id="back"),
-            )
-            yield Footer()
-
-        def on_button_pressed(self, event: Button.Pressed) -> None:
-            if event.button.id == "back":
-                self.app.pop_screen()
-            elif event.button.id == "select_tag":
-                # Implement tag selection
-                pass
-            elif event.button.id == "start_container":
-                # Get project name and start container
-                self.app.pop_screen()
-
-    # Add similar screens for other commands
-    class GenericScreen(Screen):
-        """Generic screen for other operations"""
-
-        def compose(self) -> ComposeResult:
-            yield Header()
-            yield Container(
-                Static("Operation not yet implemented in TUI", classes="title"),
-                Static("Please use CLI mode for this operation"),
-                Button("Back", id="back"),
-            )
-            yield Footer()
-
-        def on_button_pressed(self, event: Button.Pressed) -> None:
-            if event.button.id == "back":
-                self.app.pop_screen()
+                self.app.push_screen(event.button.id)
 
     class ContainerTUI(App):
         """Main TUI application"""
@@ -533,7 +479,7 @@ if TEXTUAL_AVAILABLE:
             padding: 1;
             color: cyan;
         }
-
+        
         #menu {
             align: center middle;
             width: 50;
@@ -541,31 +487,18 @@ if TEXTUAL_AVAILABLE:
             border: solid cyan;
             padding: 2;
         }
-
+        
         Button {
             width: 100%;
             margin: 1 0;
         }
         """
-        SCREENS = {
-            # "start": GenericScreen,
-            # "enter": GenericScreen,
-            # "stop": GenericScreen,
-            # "destroy": GenericScreen,
-            # "backup": GenericScreen,
-            # "list": GenericScreen,
-            # "pull": GenericScreen,
-            # "config": GenericScreen,
-        }
 
         def __init__(self, docker_manager: DockerManager):
             super().__init__()
             self.docker_manager = docker_manager
 
         def on_mount(self) -> None:
-            # Install all screens
-            for name, screen in self.SCREENS.items():
-                self.install_screen(screen, name=name)
             self.push_screen(MainMenu())
 
 
