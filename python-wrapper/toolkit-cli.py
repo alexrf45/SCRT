@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Security Research Container Manager
-A modern Python wrapper for managing security research containers with TUI and CLI interfaces.
+toolkit
 """
 
 import os
@@ -21,12 +20,10 @@ try:
     import rich
     from rich.console import Console
     from rich.table import Table
-    from rich.panel import Panel
     from rich.prompt import Prompt, Confirm
     from rich.progress import Progress, SpinnerColumn, TextColumn
     from rich.text import Text
     from rich.layout import Layout
-    from rich.live import Live
 except ImportError:
     print("Error: Required packages not installed.")
     print("Please install: pip install rich requests")
@@ -38,17 +35,6 @@ except ImportError:
     print("Error: requests package not installed.")
     print("Please install: pip install requests")
     sys.exit(1)
-
-# Optional TUI package
-# try:
-#     from textual.app import App, ComposeResult
-#     from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
-#     from textual.widgets import Header, Footer, Button, Static, Input, Select, ListView, ListItem, Label
-#     from textual.screen import Screen
-#     from textual import events
-#     TEXTUAL_AVAILABLE = True
-# except ImportError:
-#     TEXTUAL_AVAILABLE = False
 
 console = Console()
 
