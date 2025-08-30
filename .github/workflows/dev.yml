@@ -23,7 +23,7 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            fonalex45/toolkit
+            fonalex45/scrt
           # generate Docker tags based on the following events/attributes
           tags: |
             type=schedule

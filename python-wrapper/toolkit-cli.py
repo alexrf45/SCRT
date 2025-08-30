@@ -441,8 +441,8 @@ class CLI:
            |    _________________________________________     |
            |   |                                         |    |
            |   |  admin@toolkit $ _                      |    |
-           |   |  Security Research Container Manager    |    |
-           |   |                                         |    |
+           |   |  Security Research Container Toolkit    |    |
+           |   |                   (SCRT)                |    |
            |   |_________________________________________|    |
            |                                                  |
             \\_________________________________________________/

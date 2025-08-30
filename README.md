@@ -1,7 +1,7 @@
 # Toolkit
 
-![GitHub Release](https://img.shields.io/github/v/release/alexrf45/toolkit?display_name=tag&style=plastic)
-![Logo](https://img.shields.io/docker/image-size/fonalex45/toolkit) ![Logo](https://img.shields.io/docker/pulls/fonalex45/gr3ysh3ll)
+![GitHub Release](https://img.shields.io/github/v/release/alexrf45/scrt?display_name=tag&style=plastic)
+![Logo](https://img.shields.io/docker/image-size/fonalex45/scrt) ![Logo](https://img.shields.io/docker/pulls/fonalex45/scrt)
 
 > **toolkit** — a disposable, flexible, and repeatable container environment for security researchers, analysts, and enthusiasts.
 
