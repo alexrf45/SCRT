@@ -1,15 +1,15 @@
-# Toolkit
+# Security Research Container Toolkit
 
-![GitHub Release](https://img.shields.io/github/v/release/alexrf45/scrt?display_name=tag&style=plastic)
+![GitHub Release](https://img.shields.io/github/v/release/alexrf45/SCRT?display_name=tag&style=plastic)
 ![Logo](https://img.shields.io/docker/image-size/fonalex45/scrt) ![Logo](https://img.shields.io/docker/pulls/fonalex45/scrt)
 
-> **toolkit** — a disposable, flexible, and repeatable container environment for security researchers, analysts, and enthusiasts.
+> **SCRT** — a disposable, flexible, and repeatable container environment for security researchers, analysts, and enthusiasts.
 
 ---
 
-`toolkit` is a containerized security research environment designed for offensive and defensive operations.
+`SCRT` is a containerized security research environment designed for offensive and defensive operations.
 
-Whether it's recon, exploitation, log analysis, or tool testing, `toolkit` gives you consistent environments every time. Avoid dependency hell and save countless hours configuring the host OS. `toolkit` runs locally, in the cloud or even kubernetes if you're
+Whether it's recon, exploitation, log analysis, or tool testing, `scrt` gives you consistent environments every time. Avoid dependency hell and save countless hours configuring the host OS. `scrt` runs locally, in the cloud or even kubernetes if you're
 feeling frisky
 
 \*\*> [!NOTE]
@@ -20,7 +20,7 @@ feeling frisky
 
 ## Features
 
-![kali](./images/toolkit.png)
+![kali](./images/scrt.png)
 
 - [ ] Lightweight kali base image with opinionated tool selection
 
@@ -38,7 +38,7 @@ feeling frisky
 
 ---
 
-##  How to run `toolkit`
+##  How to run `scrt`
 
 ### Dependencies
 
@@ -49,7 +49,7 @@ feeling frisky
 
 ```bash
 USAGE:
-  toolkit <command> [arguments]
+  scrt <command> [arguments]
 
 COMMANDS:
   start <project> [image]     - Start a new container
@@ -64,14 +64,14 @@ COMMANDS:
   help                        - Show this help
 
 EXAMPLES:
-  toolkit start myproject
-  toolkit start myproject fonalex45/gr3ysh3ll:dev
-  toolkit backup myproject ./my-backups
-  toolkit destroy myproject --force
+  scrt start myproject
+  scrt start myproject fonalex45/gr3ysh3ll:dev
+  scrt backup myproject ./my-backups
+  scrt destroy myproject --force
 
 CONFIGURATION:
-  Configuration file: /home/fr3d/.toolkit.conf
-  Run 'toolkit config' to create a configuration file
+  Configuration file: /home/fr3d/.scrt.conf
+  Run 'scrt config' to create a configuration file
 
 ENVIRONMENT VARIABLES:
   NAME          - Project/Lab/Engagement name
@@ -79,14 +79,14 @@ ENVIRONMENT VARIABLES:
   DOMAIN        - Target domain name
   USER          - Target user
   IP            - Target IP Address (mostly for lab environments/ CTFs)
-  TOOL_TAG    - Docker image tag (latest by default)
-  TOOL_SHELL    - Shell to use inside container
-  TOOL_HOST_NET - Enable host networking (true/false)
-  TOOL_X11      - Enable X11 forwarding (true/false)
-  TOOL_GPU      - Enable GPU support (true/false)
-  TOOL_CAPS     - Additional capabilities (comma-separated)
-  TOOL_MOUNTS   - Extra mounts (comma-separated)
-  TOOL_WORKDIR  - Base working directory
+  SCRT_TAG    - Docker image tag (latest by default)
+  SCRT_SHELL    - Shell to use inside container
+  SCRT_HOST_NET - Enable host networking (true/false)
+  SCRT_X11      - Enable X11 forwarding (true/false)
+  SCRT_GPU      - Enable GPU support (true/false)
+  SCRT_CAPS     - Additional capabilities (comma-separated)
+  SCRT_MOUNTS   - Extra mounts (comma-separated)
+  SCRT_WORKDIR  - Base working directory
 
 ```
 

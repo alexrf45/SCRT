@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-toolkit
+Security Research Container scrt:
+v2.0.0
+WIP w/ AI generated code, looking to make modifications
+to libraries to focus on the docker
+libraries versus os and other native libraries
 """
 
 import os
@@ -14,31 +18,13 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Tuple
 from dataclasses import dataclass, field, asdict
-
-# Check for required packages
-try:
-    import rich
-    from rich.console import Console
-    from rich.table import Table
-    from rich.prompt import Prompt, Confirm
-    from rich.progress import Progress, SpinnerColumn, TextColumn
-    from rich.text import Text
-    from rich.layout import Layout
-except ImportError:
-    print("Error: Required packages not installed.")
-    print("Please install: pip install rich requests")
-    sys.exit(1)
-
-try:
-    import requests
-except ImportError:
-    print("Error: requests package not installed.")
-    print("Please install: pip install requests")
-    sys.exit(1)
+from rich.console import Console
+from rich.table import Table
+from rich.prompt import Prompt, Confirm
+from rich.progress import Progress, SpinnerColumn, TextColumn
+import requests
 
 console = Console()
-
-# Color scheme
 
 
 class Colors:
@@ -52,8 +38,8 @@ class Colors:
 
 @dataclass
 class Config:
-    """Configuration for the toolkit"""
-    docker_image: str = "fonalex45/toolkit:latest"
+    """Configuration for the scrt"""
+    docker_image: str = "fonalex45/scrt:latest"
     container_shell: str = "/bin/zsh"
     host_networking: bool = True
     enable_x11: bool = True
@@ -63,7 +49,7 @@ class Config:
     extra_mounts: List[str] = field(default_factory=list)
     work_dir_base: str = field(default_factory=lambda: os.getcwd())
     config_file: Path = field(
-        default_factory=lambda: Path.home() / ".toolkit.conf.json")
+        default_factory=lambda: Path.home() / ".scrt.conf.json")
 
     def load(self):
         """Load configuration from file"""
@@ -111,7 +97,8 @@ class DockerManager:
     def container_exists(self, project: str) -> bool:
         """Check if container exists"""
         try:
-            result = subprocess.run(['docker', 'container', 'inspect', project],
+            result = subprocess.run(['docker', 'container',
+                                     'inspect', project],
                                     capture_output=True,
                                     text=True)
             return result.returncode == 0
@@ -133,7 +120,7 @@ class DockerManager:
         """Fetch available Docker tags from Docker Hub"""
         try:
             # Get tags from Docker Hub API
-            url = "https://hub.docker.com/v2/repositories/fonalex45/toolkit/tags"
+            url = "https://hub.docker.com/v2/repositories/fonalex45/scrt/tags"
             response = requests.get(url, timeout=5)
 
             if response.status_code == 200:
@@ -387,11 +374,11 @@ class DockerManager:
             return False
 
     def list_containers(self) -> List[Dict[str, str]]:
-        """List all toolkit containers"""
+        """List all scrt containers"""
         try:
             result = subprocess.run([
                 'docker', 'ps', '-a',
-                '--filter', 'ancestor=fonalex45/toolkit',
+                '--filter', 'label=author=fr3d',
                 '--format', 'json'
             ], capture_output=True, text=True)
 
@@ -403,7 +390,8 @@ class DockerManager:
                         containers.append({
                             'name': data.get('Names', ''),
                             'status': data.get('Status', ''),
-                            'image': data.get('Image', '')
+                            'image': data.get('Image', ''),
+                            'createdat': data.get('CreatedAt', '')
                         })
                     except json.JSONDecodeError:
                         continue
@@ -440,7 +428,7 @@ class CLI:
             /                                                \\
            |    _________________________________________     |
            |   |                                         |    |
-           |   |  admin@toolkit $ _                      |    |
+           |   |  admin@scrt $ _                         |    |
            |   |  Security Research Container Toolkit    |    |
            |   |                   (SCRT)                |    |
            |   |_________________________________________|    |
@@ -455,7 +443,7 @@ class CLI:
         """Interactive Docker tag selection"""
         console.print(f"\n[{Colors.HEADER}]Docker Tag Selection[/]")
         console.print(
-            f"[{Colors.INFO}]View available tags: https://hub.docker.com/r/fonalex45/toolkit/tags[/]\n")
+            f"[{Colors.INFO}]View available tags: https://hub.docker.com/r/fonalex45/scrt/tags[/]\n")
 
         tags, most_recent = self.docker_manager.get_available_tags()
 
@@ -481,21 +469,21 @@ class CLI:
                             "1", "2", "3", "4"] if most_recent else ["1", "2", "3"])
 
         if choice == "1":
-            return "fonalex45/toolkit:latest"
+            return "fonalex45/scrt:latest"
         elif choice == "2":
-            return "fonalex45/toolkit:dev"
+            return "fonalex45/scrt:dev"
         elif choice == "3" and most_recent:
-            return f"fonalex45/toolkit:{most_recent}"
+            return f"fonalex45/scrt:{most_recent}"
         else:
             custom_tag = Prompt.ask("Enter custom tag")
-            if not custom_tag.startswith("fonalex45/toolkit:"):
-                custom_tag = f"fonalex45/toolkit:{custom_tag}"
+            if not custom_tag.startswith("fonalex45/scrt:"):
+                custom_tag = f"fonalex45/scrt:{custom_tag}"
             return custom_tag
 
     def run_cli(self):
         """Run CLI mode"""
         parser = argparse.ArgumentParser(
-            description='Security Research Container Manager',
+            description='Security Research Container Toolkit',
             formatter_class=argparse.RawDescriptionHelpFormatter
         )
 
@@ -532,8 +520,8 @@ class CLI:
             '--dir', default='./backups', help='Backup directory')
 
         # Pull command
-        pull_parser = subparsers.add_parser('pull', help='Pull Docker image')
-        pull_parser.add_argument('--image', help='Image to pull')
+        pull_parser = subparsers.add_parser('pull', help='Pull SCRT image')
+        pull_parser.add_argument('--image', help=' SCRT Image to pull')
         pull_parser.add_argument(
             '--select-tag', action='store_true', help='Interactively select Docker tag')
 
@@ -551,7 +539,7 @@ class CLI:
             return
 
         # Check Docker availability
-        if args.command not in ['config', 'tui']:
+        if args.command not in ['config']:
             if not self.docker_manager.check_docker():
                 console.print(
                     f"[{Colors.ERROR}]Docker is not available or not running[/]")
@@ -585,20 +573,22 @@ class CLI:
         elif args.command == 'list':
             containers = self.docker_manager.list_containers()
             if containers:
-                table = Table(title="Toolkit Containers", show_header=True)
+                table = Table(title="SCRT Containers", show_header=True)
                 table.add_column("Name", style="cyan")
                 table.add_column("Status", style="yellow")
                 table.add_column("Image", style="green")
+                table.add_column("CreatedAt", style="red")
 
                 for container in containers:
                     table.add_row(
                         container['name'],
                         container['status'],
-                        container['image']
+                        container['image'],
+                        container['createdat']
                     )
                 console.print(table)
             else:
-                console.print(f"[{Colors.INFO}]No toolkit containers found[/]")
+                console.print(f"[{Colors.INFO}]No containers found[/]")
 
         elif args.command == 'config':
             self.manage_config()
