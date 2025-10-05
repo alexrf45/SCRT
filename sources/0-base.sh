@@ -60,7 +60,6 @@ main_tools() {
     fzf \
     jq \
     mkcert \
-    neovim \
     fastfetch \
     starship
 }
