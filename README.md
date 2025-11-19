@@ -101,7 +101,6 @@ alias t='tmux new -f ~/.tmux.conf -s $1'
 alias i='sudo apt install -y'
 alias q='exit'
 alias r='. ~/.zshrc'
-alias v='nvim'
 alias update='sudo apt update'
 alias upgrade='sudo apt upgrade'
 alias get="curl -O -L"

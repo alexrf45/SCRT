@@ -15,12 +15,6 @@ mkdir -p "$HOME/.config" && mkdir -p "$HOME/.zsh" &&
 
 git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
 
-git clone https://github.com/LazyVim/starter "$HOME/.config/nvim"
-
-rm -rf ~/.config/nvim/.git
-
-cp -r "$TOOL_DIR"/plugins/* "$HOME/.config/nvim/lua/plugins/."
-
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
 git clone https://github.com/zsh-users/zsh-autosuggestions "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
