@@ -1,57 +1,123 @@
 #!/bin/bash
 
-base() {
-  sudo apt-get install -y \
-    wget curl man git lolcat \
-    figlet tmux mousepad firefox-esr hexcurse file ruby ruby-dev \
-    vim nano p7zip-full kali-themes \
-    djvulibre-bin python3-pip openssh-client openssl traceroute python3-virtualenv libpcap-dev \
-    jq xpdf pipx man-db exploitdb \
-    rpcbind nfs-common feh cmake \
-    ntpsec ntpsec-ntpdate bash-completion zsh bat mkcert \
-    dbus-x11 x11-utils openssh-server supervisor x11vnc xvfb autocutsel \
-    novnc upx-ucl aria2 neovim fzf
+base_system() {
+  sudo apt-get install \
+    -y --no-install-recommends \
+    cmake \
+    djvulibre-bin \
+    file \
+    iputils-ping \
+    libpcap-dev \
+    man-db \
+    ntpsec \
+    ntpsec-ntpdate \
+    nfs-common \
+    openssh-server \
+    rpcbind \
+    supervisor
+
+}
+
+base_desktop() {
+  sudo apt-get install \
+    -y --no-install-recommends \
+    autocutsel \
+    dbus-x11 \
+    firefox-esr \
+    kali-themes \
+    mousepad \
+    x11-utils \
+    xpdf
+}
+
+base_languages() {
+  sudo apt-get install \
+    -y --no-install-recommends \
+    pipx \
+    python3-pip \
+    python3-virtualenv \
+    ruby \
+    ruby-dev \
+    upx-ucl
+}
+
+base_tools() {
+  sudo apt-get install \
+    -y --no-install-recommends \
+    feh \
+    hexcurse \
+    p7zip-full \
+    rlwrap \
+    traceroute \
+    upx-ucl
+}
+
+main_tools() {
+  sudo apt-get install \
+    -y --no-install-recommends \
+    aria2 \
+    bat \
+    fzf \
+    jq \
+    mkcert \
+    fastfetch \
+    starship
 }
 
 network() {
   sudo apt-get install -y \
-    netcat-traditional socat \
-    rlwrap nmap \
-    netdiscover masscan \
-    dnsutils onesixtyone \
-    braa tcpdump \
-    ftp telnet swaks \
-    snmpcheck snmpcheck \
-    snmp-mibs-downloader iputils-ping \
-    iproute2 proxychains \
-    sendmail ltrace \
-    raven mitmproxy \
-    netexec
+    --no-install-recommends \
+    braa \
+    dnsutils \
+    ftp \
+    iproute2 \
+    ltrace \
+    masscan \
+    mitmproxy \
+    netcat-traditional \
+    netdiscover \
+    netexec \
+    nmap \
+    onesixtyone \
+    proxychains \
+    raven \
+    snmp-mibs-downloader \
+    snmpcheck \
+    socat \
+    swaks \
+    tcpdump \
+    telnet
 }
 
 active_directory() {
   sudo apt-get install -y \
-    smbclient evil-winrm \
-    responder powershell \
-    ldap-utils enum4linux-ng \
-    bloodhound.py
+    --no-install-recommends \
+    bloodhound.py \
+    enum4linux-ng \
+    evil-winrm \
+    ldap-utils \
+    powershell \
+    responder \
+    smbclient
 }
 
 osint_tools() {
   sudo apt-get install -y \
-    csvtool vinetto \
-    sqlitebrowser exiflooter \
+    --no-install-recommends \
+    cewl \
+    csvtool \
+    exiflooter \
     h8mail \
-    sn0int cewl seclists
+    sn0int \
+    sqlitebrowser \
+    vinetto
 }
 
-slim_kali() {
-  sudo apt-get -y autoclean &&
-    sudo apt-get -y autoremove &&
-    sudo rm -rf /var/lib/apt/lists/*
-}
-
-base
+base_system
+base_desktop
+base_languages
+base_tools
+main_tools
 network
 active_directory
 osint_tools

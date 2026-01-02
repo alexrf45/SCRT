@@ -1,8 +1,8 @@
 export PATH="$PATH:$HOME/.local/bin"
-export AGENT='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
-export EDITOR=vim
+#export AGENT='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+export EDITOR=nvim
 export TERM='xterm-256color'
-export VISUAL=vim
+export VISUAL=nvim
 export TZ=America/New_York
 
 export FZF_DEFAULT_OPTS=$FZF_DEFAULT_OPTS'

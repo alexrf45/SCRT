@@ -1,13 +1,28 @@
-setopt autocd extendedglob
+setopt AUTO_CD
+setopt AUTO_PUSHD
+setopt EXTENDED_GLOB
+setopt EXTENDED_HISTORY
+setopt NOMATCH
+setopt MENU_COMPLETE
+setopt GLOB_DOTS
+setopt INTERACTIVE_COMMENTS
+setopt HIST_IGNORE_SPACE  # Don't save when prefixed with space
+setopt HIST_IGNORE_DUPS # Don't save duplicate lines
+setopt HIST_VERIFY
+setopt INC_APPEND_HISTORY
+setopt SHARE_HISTORY      # Share history between sessions
+setopt PROMPT_SUBST
+unsetopt beep
 
 #history config
 HISTFILE=~/.history
-HISTSIZE=5000
-SAVEHIST=5000
+HISTSIZE=10000
+SAVEHIST=10000
 HIST_STAMPS="mm/dd/yyyy"
 
-#turn off beep
-unsetopt beep
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#ffffff,standout"
+ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE="20"
+ZSH_AUTOSUGGEST_USE_ASYNC=1
 
 #vi key bindings
 bindkey -v
@@ -22,6 +37,9 @@ source "$HOME/.zprofile"
 for file in $HOME/.zsh/*; do
     source "$file"
 done
+
+autoload -Uz colors; colors
+autoload -Uz compinit && compinit
 
 fpath=(/tmp/zsh-completions/src $fpath)
 
@@ -41,8 +59,8 @@ source $HOME/.oh-my-zsh/oh-my-zsh.sh
 source <(fzf --zsh)
 
 #persistant ssh agent
-eval $(ssh-agent) &> /dev/null
+#eval $(ssh-agent) &> /dev/null
 
 #starship prompt
-#eval "$(starship init zsh)"
+eval "$(starship init zsh)"
 

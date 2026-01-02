@@ -2,11 +2,16 @@
 
 web() {
   sudo apt-get install -y \
-    whatweb ffuf \
-    sqlmap exiftool \
+    --no-install-recommends \
+    burpsuite \
     default-mysql-client \
-    hurl postgresql \
-    sqsh burpsuite
+    exiftool \
+    ffuf \
+    hurl \
+    postgresql \
+    sqlmap \
+    sqsh \
+    whatweb
 }
 
 web-server() {
@@ -23,7 +28,9 @@ web-server() {
 }
 
 password() {
-  sudo apt-get install -y crunch
+  sudo apt-get install -y \
+    --no-install-recommends \
+    crunch
 }
 
 payload() {
@@ -86,3 +93,7 @@ extra
 
 wget -q -O "$HOME/.local/bin/busybox" \
   "https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox"
+
+wget -q -O "$HOME/.local/bin/nvim" \
+  "https://github.com/neovim/neovim/releases/download/stable/nvim-linux-x86_64.appimage" &&
+  chmod +x "$HOME/.local/bin/nvim"

@@ -1,18 +1,42 @@
 #!/bin/bash
 
-# for deploying aegis in bash. for zsh, comment out the bash commands and uncomment the zsh lines
-
 set -e
 
 echo -e "pulling image now..."
 
-docker pull fonalex45/gr3ysh3ll:latest
+docker pull fonalex45/toolkit:dev
 
-cp script/gr3ysh3ll "$HOME/.local/bin/."
+mkdir -p "$HOME/.local/bin"
 
-echo "source '$HOME/.local/bin/gr3ysh3ll'" >>.bashrc
+cp script/toolkit "$HOME/.local/bin/."
 
-# echo 'source "$HOME/.local/bin/aegis"' >>.zshrc
+setup_toolkit() {
+  local toolkit_path="$HOME/.local/bin/toolkit"
 
-. "$HOME/.bashrc"
-# . ~/.zshrc
+  # Check if toolkit exists
+  if [[ ! -f "$toolkit_path" ]]; then
+    echo "Error: Toolkit not found at $toolkit_path"
+    return 1
+  fi
+
+  # Detect current shell and set appropriate rc file
+  if [[ "$SHELL" == *"zsh"* ]]; then
+    local rc_file="$HOME/.zshrc"
+  else
+    local rc_file="$HOME/.bashrc"
+  fi
+
+  # Add source line if not already present
+  if ! grep -q "\.local/bin/toolkit" "$rc_file" 2>/dev/null; then
+    echo "source '$HOME/.local/bin/toolkit'" >>"$rc_file"
+    echo "Added toolkit to $rc_file"
+  else
+    echo "Toolkit already configured in $rc_file"
+  fi
+
+  # Source the updated file
+  source "$rc_file"
+  echo "Sourced $rc_file"
+}
+
+setup_toolkit
