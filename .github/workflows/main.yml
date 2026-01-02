@@ -17,7 +17,7 @@ jobs:
         with:
           status: starting
           channel: '#docker-build'
-          message: Starting toolkit main build and push...
+          message: Starting SCRT main build and push...
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -35,7 +35,7 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           push: true
-          tags: fonalex45/toolkit:latest
+          tags: fonalex45/scrt:latest
       -
         name: Notify Slack Channel of finished build
         uses: act10ns/slack@v2
