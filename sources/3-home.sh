@@ -16,6 +16,9 @@ cp "$TOOL_DIR/zsh/history" "$HOME/.history"
 cp -r "$TOOL_DIR/mozilla" "$HOME/.mozilla"
 cp "$TOOL_DIR/starship.toml" "$HOME/.config/starship.toml"
 
+mkdir -p "$HOME/.BurpSuite"
+cp "$TOOL_DIR/burp-user.json" "$HOME/.BurpSuite/UserConfigCommunity.json"
+
 git clone --depth 1 https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
 
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
