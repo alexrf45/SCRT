@@ -102,8 +102,6 @@ pivot
 privesc
 extra
 
-sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
-
 wget -q -O "$HOME/.local/bin/busybox" \
   "https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox"
 chmod +x "$HOME/.local/bin/busybox"

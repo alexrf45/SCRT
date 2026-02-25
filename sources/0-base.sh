@@ -119,6 +119,4 @@ network
 active_directory
 osint_tools
 
-sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
-
 mkdir -p "$HOME/.local/bin" "$HOME/.logs" "$HOME/.tools" "$HOME/.proxychains"

@@ -6,28 +6,28 @@ LABEL "author"="fr3d"
 LABEL "version"="v1.6.1"
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    TZ="America/New_York"
+  TZ="America/New_York"
 
 # Bootstrap HTTPS support and install base utilities
 RUN echo "deb http://kali.download/kali kali-rolling main contrib non-free non-free-firmware" > /etc/apt/sources.list && \
   apt-get update && \
-  apt-get install -y --no-install-recommends ca-certificates && \
+  apt-get install -y ca-certificates && \
   echo "deb https://kali.download/kali kali-rolling main contrib non-free non-free-firmware" > /etc/apt/sources.list && \
   apt-get update && \
-  apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    nano \
-    sudo \
-    tmux \
-    vim \
-    wget \
-    zsh && \
-  apt-get clean && rm -rf /var/lib/apt/lists/*
+  apt-get install -y \
+  curl \
+  git \
+  nano \
+  sudo \
+  tmux \
+  vim \
+  wget \
+  zsh
+#apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --gid 1000 kali \
   && useradd --home-dir /home/kali --create-home --uid 1000 \
-    --gid 1000 --shell /usr/bin/zsh --skel /dev/null kali \
+  --gid 1000 --shell /usr/bin/zsh --skel /dev/null kali \
   && chown -R kali:kali /home/kali/ \
   && echo kali:kali | chpasswd \
   && usermod -aG sudo kali \

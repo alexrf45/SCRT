@@ -107,7 +107,6 @@ notify_install() {
 
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends amass
-sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
 
 httprobe_install
 httpx_install
