@@ -1,0 +1,9 @@
+bin/
+*.exe
+*.test
+*.out
+*.prof
+
+# Go workspace
+go.work
+go.work.sum

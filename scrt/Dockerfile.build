@@ -1,0 +1,51 @@
+# Dockerfile.build — Reproducible Go build environment for SCRT
+#
+# Eliminates local toolchain issues by building inside a clean,
+# official Go container. The binary is output to /output which
+# maps to a host volume.
+#
+# Usage:
+#   make docker-build
+#   # or manually:
+#   docker build -f Dockerfile.build --build-arg VERSION=v1.5.1 -o bin/ .
+
+# ============================================================================
+# Stage 1: Build
+# ============================================================================
+FROM golang:1.24-bookworm AS builder
+
+ARG VERSION=dev
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+
+WORKDIR /src
+
+# Cache dependency downloads separately from source changes.
+# This layer only invalidates when go.mod/go.sum change.
+COPY go.mod go.sum* ./
+RUN go mod download 2>/dev/null; go mod tidy
+
+# Copy source and build
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build \
+      -trimpath \
+      -ldflags "-s -w -X main.version=${VERSION}" \
+      -o /out/scrt \
+      ./cmd/scrt
+
+# ============================================================================
+# Stage 2: Test (optional — runs vet + race tests in the same clean env)
+# ============================================================================
+FROM builder AS tester
+
+RUN go vet ./...
+RUN go test -race -count=1 ./...
+
+# ============================================================================
+# Stage 3: Output — scratch image containing only the binary
+# ============================================================================
+FROM scratch AS binary
+
+COPY --from=builder /out/scrt /scrt

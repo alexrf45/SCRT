@@ -89,3 +89,20 @@ mkcd() {
     mkdir $1 && cd $1
   fi
 }
+
+burp-cert() {
+  local burp_der="${HOME}/.BurpSuite/cacert.der"
+  local dest="${BURP_CA:-/certs/burp-ca.pem}"
+
+  if [[ ! -f "${burp_der}" ]]; then
+    echo "error: ${burp_der} not found — start Burpsuite first" >&2
+    return 1
+  fi
+
+  if ! openssl x509 -inform DER -in "${burp_der}" -out "${dest}" 2>/dev/null; then
+    echo "error: openssl failed to convert ${burp_der}" >&2
+    return 1
+  fi
+
+  echo "burp CA cert written to ${dest}"
+}
