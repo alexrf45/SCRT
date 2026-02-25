@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 base_system() {
   sudo apt-get install \
@@ -9,13 +10,10 @@ base_system() {
     iputils-ping \
     libpcap-dev \
     man-db \
-    ntpsec \
-    ntpsec-ntpdate \
     nfs-common \
     openssh-server \
     rpcbind \
     supervisor
-
 }
 
 base_desktop() {
@@ -23,6 +21,7 @@ base_desktop() {
     -y --no-install-recommends \
     autocutsel \
     dbus-x11 \
+    feh \
     firefox-esr \
     kali-themes \
     mousepad \
@@ -44,12 +43,11 @@ base_languages() {
 base_tools() {
   sudo apt-get install \
     -y --no-install-recommends \
-    feh \
     hexcurse \
+    ltrace \
     p7zip-full \
     rlwrap \
-    traceroute \
-    upx-ucl
+    traceroute
 }
 
 main_tools() {
@@ -71,7 +69,6 @@ network() {
     dnsutils \
     ftp \
     iproute2 \
-    ltrace \
     masscan \
     mitmproxy \
     netcat-traditional \
@@ -122,10 +119,6 @@ network
 active_directory
 osint_tools
 
-mkdir -p "$HOME/.local/bin"
+sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
 
-mkdir -p "$HOME/.logs"
-
-mkdir -p "$HOME/.tools"
-
-mkdir -p "$HOME/.proxychains"
+mkdir -p "$HOME/.local/bin" "$HOME/.logs" "$HOME/.tools" "$HOME/.proxychains"
