@@ -14,7 +14,7 @@ web() {
     exiftool \
     ffuf \
     hurl \
-    postgresql \
+    postgresql-client \
     sqlmap \
     sqsh \
     whatweb
