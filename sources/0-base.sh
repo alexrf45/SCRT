@@ -93,7 +93,6 @@ active_directory() {
     enum4linux-ng \
     evil-winrm \
     ldap-utils \
-    powershell \
     responder \
     smbclient
 }
