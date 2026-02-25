@@ -9,7 +9,6 @@ miniserve_latest_url() {
 web() {
   sudo apt-get install -y \
     --no-install-recommends \
-    burpsuite \
     default-mysql-client \
     exiftool \
     ffuf \

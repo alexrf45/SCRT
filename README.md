@@ -22,7 +22,7 @@ Whether it's recon, exploitation, log analysis, or tool testing, `scrt` gives yo
 - Lightweight Kali base image with opinionated tool selection
 - Persistent containers, volumes, and workspaces — pick up where you left off
 - Custom Starship prompt with pre-configured Tmux status line
-- GUI app support (Burpsuite, Mousepad, SQLiteViewer) via X11 forwarding
+- GUI app support (Mousepad, SQLiteViewer) via X11 forwarding
 - Firefox pre-configured with bookmarks, FoxyProxy, and Cookie Modifier
 - Built-in command history with `fzf` for fast filtering (`Ctrl+r`)
 

@@ -16,8 +16,6 @@ cp "$TOOL_DIR/zsh/history" "$HOME/.history"
 cp -r "$TOOL_DIR/mozilla" "$HOME/.mozilla"
 cp "$TOOL_DIR/starship.toml" "$HOME/.config/starship.toml"
 
-mkdir -p "$HOME/.BurpSuite"
-cp "$TOOL_DIR/burp-user.json" "$HOME/.BurpSuite/UserConfigCommunity.json"
 
 git clone --depth 1 https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
 
@@ -31,5 +29,4 @@ cp "$TOOL_DIR/zsh/.zshrc" "$HOME/.zshrc"
 cp "$TOOL_DIR/zsh/kali.zsh-theme" "$HOME/.oh-my-zsh/custom/themes/kali.zsh-theme"
 cp "$TOOL_DIR/zsh/functions.sh" "$HOME/.zsh/functions.sh"
 cp "$TOOL_DIR/zsh/aliases" "$HOME/.zsh/aliases"
-cp "$TOOL_DIR/zsh/burp.env" "$HOME/.zsh/burp.env"
 cp "$TOOL_DIR/zsh/.zprofile" "$HOME/.zprofile"

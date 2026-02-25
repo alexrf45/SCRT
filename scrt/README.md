@@ -13,7 +13,7 @@ SCRT is a CLI wrapper around Docker that provides project-isolated security rese
 - Lightweight Kali base image with opinionated tool selection
 - Persistent containers, volumes, and workspaces — pick up where you left off
 - Custom Starship prompt with pre-configured Tmux status line
-- GUI app support (Burpsuite, Wireshark, Firefox) via X11 forwarding
+- GUI app support (Mousepad, SQLiteViewer, Firefox) via X11 forwarding
 - Firefox pre-configured with bookmarks, FoxyProxy, and Cookie Modifier
 - Built-in command history with `fzf` for fast filtering (`Ctrl+r`)
 - Project directory scaffolding (recon, exploit, pivot, privesc, report)
@@ -161,7 +161,7 @@ SCRT is written in Go using `os/exec` to shell out to the Docker CLI for contain
 The SCRT container image (`fonalex45/scrt`) is a Kali Linux base with curated security tooling. See `sources/` for the full tool list. Key categories:
 
 - **Network**: nmap, masscan, netexec, tcpdump, socat, mitmproxy
-- **Web**: Burpsuite, ffuf, sqlmap, whatweb
+- **Web**: ffuf, sqlmap, whatweb
 - **Active Directory**: bloodhound.py, evil-winrm, responder, smbclient
 - **OSINT**: cewl, sn0int, exiflooter, h8mail
 - **Privesc**: linpeas, winpeas, pspy, chisel
