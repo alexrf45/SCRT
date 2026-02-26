@@ -5,14 +5,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 
 	"github.com/alexrf45/scrt/internal/config"
 	"github.com/alexrf45/scrt/internal/container"
 	"github.com/alexrf45/scrt/internal/project"
+	"github.com/charmbracelet/bubbles/table"
+	charmlog "github.com/charmbracelet/log"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
@@ -23,9 +26,8 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
+	logger := charmlog.New(os.Stderr)
+	logger.SetReportTimestamp(false)
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -72,7 +74,7 @@ isolation, standardized tooling, and persistent workspaces.`,
 // start
 // ---------------------------------------------------------------------------
 
-func newStartCmd(ctx context.Context, logger *slog.Logger, cfg config.Config) *cobra.Command {
+func newStartCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config) *cobra.Command {
 	var imageName string
 
 	cmd := &cobra.Command{
@@ -123,6 +125,7 @@ func newStartCmd(ctx context.Context, logger *slog.Logger, cfg config.Config) *c
 				},
 			}
 
+			printOp("Starting container " + projectName)
 			return mgr.Start(ctx, params)
 		},
 	}
@@ -135,7 +138,7 @@ func newStartCmd(ctx context.Context, logger *slog.Logger, cfg config.Config) *c
 // enter
 // ---------------------------------------------------------------------------
 
-func newEnterCmd(ctx context.Context, logger *slog.Logger, cfg config.Config) *cobra.Command {
+func newEnterCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "enter <project>",
 		Short: "Enter a running container",
@@ -154,6 +157,7 @@ func newEnterCmd(ctx context.Context, logger *slog.Logger, cfg config.Config) *c
 			}
 			defer mgr.Close()
 
+			printOp("Entering container " + projectName)
 			return mgr.Enter(ctx, projectName, cfg.ContainerShell)
 		},
 	}
@@ -163,7 +167,7 @@ func newEnterCmd(ctx context.Context, logger *slog.Logger, cfg config.Config) *c
 // stop
 // ---------------------------------------------------------------------------
 
-func newStopCmd(ctx context.Context, logger *slog.Logger) *cobra.Command {
+func newStopCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:   "stop <project>",
 		Short: "Stop a running container",
@@ -190,7 +194,7 @@ func newStopCmd(ctx context.Context, logger *slog.Logger) *cobra.Command {
 // destroy
 // ---------------------------------------------------------------------------
 
-func newDestroyCmd(ctx context.Context, logger *slog.Logger, cfg config.Config) *cobra.Command {
+func newDestroyCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config) *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{
@@ -251,7 +255,7 @@ func newDestroyCmd(ctx context.Context, logger *slog.Logger, cfg config.Config) 
 // backup
 // ---------------------------------------------------------------------------
 
-func newBackupCmd(logger *slog.Logger, cfg config.Config) *cobra.Command {
+func newBackupCmd(logger *charmlog.Logger, cfg config.Config) *cobra.Command {
 	var backupDir string
 
 	cmd := &cobra.Command{
@@ -287,7 +291,7 @@ func newBackupCmd(logger *slog.Logger, cfg config.Config) *cobra.Command {
 // pull
 // ---------------------------------------------------------------------------
 
-func newPullCmd(ctx context.Context, logger *slog.Logger) *cobra.Command {
+func newPullCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 	var imageName string
 
 	cmd := &cobra.Command{
@@ -306,6 +310,7 @@ func newPullCmd(ctx context.Context, logger *slog.Logger) *cobra.Command {
 				img = config.DefaultImage
 			}
 
+			printOp("Pulling " + img)
 			return mgr.Pull(ctx, img)
 		},
 	}
@@ -318,7 +323,7 @@ func newPullCmd(ctx context.Context, logger *slog.Logger) *cobra.Command {
 // list
 // ---------------------------------------------------------------------------
 
-func newListCmd(ctx context.Context, logger *slog.Logger) *cobra.Command {
+func newListCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all SCRT containers",
@@ -336,17 +341,36 @@ func newListCmd(ctx context.Context, logger *slog.Logger) *cobra.Command {
 			}
 
 			if len(containers) == 0 {
-				fmt.Println("No SCRT containers found")
+				fmt.Println(styleStopped.Render("No SCRT containers found"))
 				return nil
 			}
 
-			// Simple tabular output
-			fmt.Printf("%-20s %-15s %-30s %s\n", "NAME", "STATE", "IMAGE", "STATUS")
-			fmt.Printf("%-20s %-15s %-30s %s\n", "----", "-----", "-----", "------")
-			for _, c := range containers {
-				fmt.Printf("%-20s %-15s %-30s %s\n", c.Name, c.State, c.Image, c.Status)
+			cols := []table.Column{
+				{Title: "NAME", Width: colWidthName},
+				{Title: "STATE", Width: colWidthState},
+				{Title: "IMAGE", Width: colWidthImage},
+				{Title: "CREATED", Width: colWidthCreated},
 			}
 
+			rows := make([]table.Row, len(containers))
+			for i, c := range containers {
+				rows[i] = table.Row{c.Name, renderState(c.State), c.Image, c.CreatedAt}
+			}
+
+			t := table.New(
+				table.WithColumns(cols),
+				table.WithRows(rows),
+				table.WithHeight(len(rows)),
+			)
+
+			s := table.DefaultStyles()
+			s.Header = styleHeader
+			s.Cell = styleCell
+			// Disable selection highlight — static render only.
+			s.Selected = lipgloss.NewStyle()
+			t.SetStyles(s)
+
+			fmt.Println(t.View())
 			return nil
 		},
 	}
@@ -356,33 +380,88 @@ func newListCmd(ctx context.Context, logger *slog.Logger) *cobra.Command {
 // config
 // ---------------------------------------------------------------------------
 
-func newConfigCmd(logger *slog.Logger, cfg config.Config) *cobra.Command {
-	return &cobra.Command{
+func newConfigCmd(logger *charmlog.Logger, cfg config.Config) *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Show and save configuration",
-		Long:  "Display current configuration and optionally save it to disk.",
+		Short: "Show and manage configuration",
+		Long:  "Display current configuration. Use 'config edit' to modify it.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Configuration file: %s\n\n", config.ConfigPath())
-			fmt.Printf("  docker_image:     %s\n", cfg.DockerImage)
-			fmt.Printf("  container_shell:  %s\n", cfg.ContainerShell)
-			fmt.Printf("  host_networking:  %t\n", cfg.HostNetworking)
-			fmt.Printf("  enable_x11:       %t\n", cfg.EnableX11)
-			fmt.Printf("  enable_gpu:       %t\n", cfg.EnableGPU)
-			fmt.Printf("  custom_caps:      %v\n", cfg.CustomCaps)
-			fmt.Printf("  extra_mounts:     %v\n", cfg.ExtraMounts)
-			fmt.Printf("  work_dir_base:    %s\n", cfg.WorkDirBase)
+			printConfig(cfg)
+			return nil
+		},
+	}
 
-			fmt.Printf("\nSave configuration to %s? (y/N): ", config.ConfigPath())
-			var response string
-			fmt.Scanln(&response)
-			if response == "y" || response == "Y" {
-				if err := config.Save(cfg); err != nil {
-					return err
+	cmd.AddCommand(newConfigEditCmd(logger))
+	return cmd
+}
+
+// printConfig renders the current configuration with lipgloss styling.
+func printConfig(cfg config.Config) {
+	kv := func(key, val string) {
+		fmt.Printf("%s %s\n", styleConfigKey.Render(key), styleConfigVal.Render(val))
+	}
+
+	fmt.Printf("\n%s\n", styleBold.Render("SCRT Configuration"))
+	fmt.Printf("%s\n\n", styleConfigPath.Render(config.ConfigPath()))
+
+	kv("docker_image", cfg.DockerImage)
+	kv("container_shell", cfg.ContainerShell)
+	kv("work_dir_base", cfg.WorkDirBase)
+	kv("host_networking", fmt.Sprintf("%t", cfg.HostNetworking))
+	kv("enable_x11", fmt.Sprintf("%t", cfg.EnableX11))
+	kv("enable_gpu", fmt.Sprintf("%t", cfg.EnableGPU))
+	kv("custom_caps", fmt.Sprintf("%v", cfg.CustomCaps))
+	kv("extra_mounts", fmt.Sprintf("%v", cfg.ExtraMounts))
+	fmt.Println()
+}
+
+// newConfigEditCmd opens the config file in $VISUAL/$EDITOR/vi and validates
+// the result after the editor exits.
+func newConfigEditCmd(logger *charmlog.Logger) *cobra.Command {
+	return &cobra.Command{
+		Use:   "edit",
+		Short: "Open config in $EDITOR",
+		Long:  "Open the SCRT configuration file in your preferred editor ($VISUAL, $EDITOR, or vi).",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path := config.ConfigPath()
+
+			// Ensure the file exists before opening — seed with defaults if not.
+			if _, err := os.Stat(path); os.IsNotExist(err) {
+				if err := config.Save(config.Default()); err != nil {
+					return fmt.Errorf("init config: %w", err)
 				}
-				logger.Info("configuration saved", "path", config.ConfigPath())
+				logger.Info("created default config", "path", path)
 			}
 
+			editor := os.Getenv("VISUAL")
+			if editor == "" {
+				editor = os.Getenv("EDITOR")
+			}
+			if editor == "" {
+				editor = "vi"
+			}
+
+			c := exec.Command(editor, path) //nolint:gosec // editor comes from trusted env vars
+			c.Stdin = os.Stdin
+			c.Stdout = os.Stdout
+			c.Stderr = os.Stderr
+
+			if err := c.Run(); err != nil {
+				return fmt.Errorf("editor %s: %w", editor, err)
+			}
+
+			// Validate the edited config immediately.
+			cfg, err := config.Load()
+			if err != nil {
+				return fmt.Errorf("config after edit: %w", err)
+			}
+			if err := config.Validate(cfg); err != nil {
+				return fmt.Errorf("invalid config after edit: %w", err)
+			}
+
+			logger.Info("configuration valid", "path", path)
 			return nil
 		},
 	}

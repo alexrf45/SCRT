@@ -47,6 +47,7 @@ docker-build:
 	DOCKER_BUILDKIT=1 docker build \
 		-f Dockerfile.build \
 		--build-arg VERSION=$(VERSION) \
+		--network=host \
 		--target binary \
 		--output type=local,dest=bin/ \
 		.
@@ -57,6 +58,7 @@ docker-test:
 	DOCKER_BUILDKIT=1 docker build \
 		-f Dockerfile.build \
 		--build-arg VERSION=$(VERSION) \
+		--network=host \
 		--target tester \
 		.
 

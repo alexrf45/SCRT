@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
+
+	charmlog "github.com/charmbracelet/log"
 )
 
 // Info holds displayable container metadata.
@@ -22,12 +23,12 @@ type Info struct {
 // Manager orchestrates Docker container lifecycle operations for SCRT.
 // All operations shell out to the docker CLI via os/exec.
 type Manager struct {
-	logger *slog.Logger
+	logger *charmlog.Logger
 }
 
 // NewManager creates a Manager and verifies Docker is available.
 // Returns ErrDockerUnavailable if the daemon is not reachable.
-func NewManager(ctx context.Context, logger *slog.Logger) (*Manager, error) {
+func NewManager(ctx context.Context, logger *charmlog.Logger) (*Manager, error) {
 	cmd := exec.CommandContext(ctx, "docker", "info")
 	cmd.Stdout = nil
 	cmd.Stderr = nil
