@@ -12,7 +12,7 @@ const (
 	colWidthName    = 22
 	colWidthState   = 12
 	colWidthImage   = 38
-	colWidthCreated = 28
+	colWidthStatus  = 30
 )
 
 var (

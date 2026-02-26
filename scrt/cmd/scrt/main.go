@@ -349,12 +349,12 @@ func newListCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 				{Title: "NAME", Width: colWidthName},
 				{Title: "STATE", Width: colWidthState},
 				{Title: "IMAGE", Width: colWidthImage},
-				{Title: "CREATED", Width: colWidthCreated},
+				{Title: "STATUS", Width: colWidthStatus},
 			}
 
 			rows := make([]table.Row, len(containers))
 			for i, c := range containers {
-				rows[i] = table.Row{c.Name, renderState(c.State), c.Image, c.CreatedAt}
+				rows[i] = table.Row{c.Name, renderState(c.State), c.Image, c.Status}
 			}
 
 			t := table.New(
