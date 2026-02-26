@@ -121,14 +121,14 @@ func applyEnvOverrides(cfg Config) Config {
 	if v := os.Getenv("SCRT_SHELL"); v != "" {
 		cfg.ContainerShell = v
 	}
-	if v := os.Getenv("SCRT_HOST_NET"); v == "false" {
-		cfg.HostNetworking = false
+	if v := os.Getenv("SCRT_HOST_NET"); v != "" {
+		cfg.HostNetworking = v != "false"
 	}
-	if v := os.Getenv("SCRT_X11"); v == "false" {
-		cfg.EnableX11 = false
+	if v := os.Getenv("SCRT_X11"); v != "" {
+		cfg.EnableX11 = v != "false"
 	}
-	if v := os.Getenv("SCRT_GPU"); v == "false" {
-		cfg.EnableGPU = false
+	if v := os.Getenv("SCRT_GPU"); v != "" {
+		cfg.EnableGPU = v != "false"
 	}
 	if v := os.Getenv("SCRT_WORKDIR"); v != "" {
 		cfg.WorkDirBase = v
