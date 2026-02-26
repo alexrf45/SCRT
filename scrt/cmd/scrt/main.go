@@ -360,7 +360,7 @@ func newListCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 			t := table.New(
 				table.WithColumns(cols),
 				table.WithRows(rows),
-				table.WithHeight(len(rows)),
+				table.WithHeight(len(rows)+1),
 			)
 
 			s := table.DefaultStyles()
