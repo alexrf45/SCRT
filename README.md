@@ -15,6 +15,9 @@ Whether it's recon, exploitation, log analysis, or tool testing, `scrt` gives yo
 > [!NOTE]
 > The container image has not been tested on Kubernetes.
 
+> [!NOTE]
+> **v3.0.0 is the next major release.** The Go-based `scrt` binary, automated CI/CD pipeline, and semantic versioning are all in place. See [Releases](https://github.com/alexrf45/SCRT/releases) for the latest binary and changelog.
+
 ---
 
 ## Features
@@ -33,7 +36,18 @@ Whether it's recon, exploitation, log analysis, or tool testing, `scrt` gives yo
 ### Dependencies
 
 - Docker
-- Bash or ZSH
+- Linux x86-64 (prebuilt binary) or Go 1.24+ (build from source)
+
+### Install the CLI binary
+
+```bash
+# Download latest release
+curl -L https://github.com/alexrf45/SCRT/releases/latest/download/scrt-linux-amd64 \
+  -o ~/.local/bin/scrt
+chmod +x ~/.local/bin/scrt
+```
+
+Full release history and changelogs: https://github.com/alexrf45/SCRT/releases
 
 ---
 
