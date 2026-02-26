@@ -49,34 +49,34 @@ COMMANDS:
   backup <project> [--dir <path>]     Backup project data
   pull [--image <image>]              Pull/update container image
   list                                List all SCRT containers
-  config                              Create default configuration
+  config                              Show current configuration
+  config edit                         Open config in $EDITOR
   version                             Show version information
-  help                                Show this help
 
 EXAMPLES:
   scrt start myproject
   scrt start myproject --image fonalex45/scrt:dev
   scrt backup myproject --dir ./my-backups
   scrt destroy myproject --force
+  scrt config edit
 ```
 
 ### Configuration
 
-SCRT loads configuration from `~/.scrt.conf.json`. Generate a default config:
+SCRT loads configuration from `~/.scrt.conf.json`. View or edit:
 
 ```bash
-scrt config
+scrt config        # display current settings
+scrt config edit   # open in $VISUAL / $EDITOR / vi
 ```
 
 | Variable | Description | Default |
 |---|---|---|
 | `SCRT_IMAGE` | Docker image to use | `fonalex45/scrt:latest` |
-| `SCRT_SHELL` | Shell inside container | `/usr/bin/zsh` |
-| `SCRT_HOST_NET` | Enable host networking | `true` |
-| `SCRT_X11` | Enable X11 forwarding | `true` |
-| `SCRT_GPU` | Enable GPU passthrough | `true` |
-| `SCRT_CAPS` | Linux capabilities (comma-separated) | `NET_ADMIN,CAP_SYS_TIME` |
-| `SCRT_MOUNTS` | Extra mounts (comma-separated) | — |
+| `SCRT_SHELL` | Shell inside container | `/bin/zsh` |
+| `SCRT_HOST_NET` | Set to `false` to disable host networking | `true` |
+| `SCRT_X11` | Set to `false` to disable X11 forwarding | `true` |
+| `SCRT_GPU` | Set to `false` to disable GPU passthrough | `true` |
 | `SCRT_WORKDIR` | Base working directory | current directory |
 
 ---

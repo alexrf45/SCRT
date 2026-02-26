@@ -18,6 +18,7 @@ SCRT is a CLI wrapper around Docker that provides project-isolated security rese
 - Built-in command history with `fzf` for fast filtering (`Ctrl+r`)
 - Project directory scaffolding (recon, exploit, pivot, privesc, report)
 - Compressed project backups with timestamps
+- Color terminal output via [Charm](https://charm.land) (lipgloss + bubbles)
 
 ## Dependencies
 
@@ -68,7 +69,8 @@ COMMANDS:
   backup <project> [--dir <path>]     Backup project data
   pull [--image <image>]              Pull/update container image
   list                                List all SCRT containers
-  config                              Create default configuration
+  config                              Show current configuration
+  config edit                         Open config in $EDITOR
   version                             Show version information
 
 EXAMPLES:
@@ -76,27 +78,29 @@ EXAMPLES:
   scrt start myproject --image fonalex45/scrt:dev
   scrt backup myproject --dir ./my-backups
   scrt destroy myproject --force
+  scrt config edit
 ```
 
 ## Configuration
 
-SCRT loads configuration from `~/.scrt.conf.json`. Generate a default config:
+SCRT loads configuration from `~/.scrt.conf.json`. View or edit:
 
 ```bash
-scrt config
+scrt config          # display current settings
+scrt config edit     # open in $VISUAL / $EDITOR / vi
 ```
 
-Settings can be overridden via environment variables:
+If no config file exists, `config edit` seeds it with defaults before opening.
+
+Settings can also be overridden at runtime via environment variables:
 
 | Variable | Description | Default |
 |---|---|---|
 | `SCRT_IMAGE` | Docker image to use | `fonalex45/scrt:latest` |
 | `SCRT_SHELL` | Shell inside container | `/bin/zsh` |
-| `SCRT_HOST_NET` | Enable host networking | `true` |
-| `SCRT_X11` | Enable X11 forwarding | `true` |
-| `SCRT_GPU` | Enable GPU passthrough | `true` |
-| `SCRT_CAPS` | Linux capabilities (comma-separated) | `NET_ADMIN,CAP_SYS_TIME` |
-| `SCRT_MOUNTS` | Extra mounts (comma-separated) | — |
+| `SCRT_HOST_NET` | Set to `false` to disable host networking | `true` |
+| `SCRT_X11` | Set to `false` to disable X11 forwarding | `true` |
+| `SCRT_GPU` | Set to `false` to disable GPU passthrough | `true` |
 | `SCRT_WORKDIR` | Base working directory | current directory |
 
 ## Build Targets
@@ -118,12 +122,13 @@ Settings can be overridden via environment variables:
 
 ```
 scrt/
-├── cmd/scrt/           # CLI entrypoint (main + cobra commands)
-│   └── main.go
+├── cmd/scrt/           # CLI entrypoint (Cobra commands)
+│   ├── main.go         # Command definitions and wiring
+│   └── style.go        # Shared lipgloss styles and render helpers
 ├── internal/
 │   ├── config/         # Configuration loading, validation, env overrides
 │   ├── container/      # Docker CLI operations (lifecycle, builder, labels)
-│   └── project/        # Project directory scaffolding
+│   └── project/        # Project directory scaffolding and backup
 ├── Dockerfile.build    # Reproducible build environment
 ├── Makefile
 ├── go.mod
@@ -150,11 +155,11 @@ Each `scrt start <project>` creates:
 SCRT is written in Go using `os/exec` to shell out to the Docker CLI for container operations and Cobra for CLI parsing. The codebase follows these principles:
 
 - **Config as code**: JSON config loaded once at startup, validated, passed explicitly — no globals (CFG-1, CFG-2)
-- **Structured logging**: `slog` with consistent fields (OBS-1)
+- **Structured logging**: [`charmbracelet/log`](https://github.com/charmbracelet/log) with colored level badges; no timestamps in CLI output (OBS-1)
 - **Sentinel errors**: Package-level error types with `errors.Is`/`errors.As` for control flow (ERR-2, ERR-3)
 - **Table-driven tests**: All packages tested with race detector enabled (T-1, G-3)
 - **Reproducible builds**: `-trimpath` with version injection via `-ldflags` (CI-2)
-- **Minimal dependencies**: stdlib preferred; Cobra is the only external dep — Docker operations use `os/exec` (MD-1)
+- **Terminal UI**: [lipgloss](https://github.com/charmbracelet/lipgloss) for styling and [bubbles](https://github.com/charmbracelet/bubbles) for the container list table
 
 ## Container Image
 
