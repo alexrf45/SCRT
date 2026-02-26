@@ -15,9 +15,6 @@ Whether it's recon, exploitation, log analysis, or tool testing, `scrt` gives yo
 > [!NOTE]
 > The container image has not been tested on Kubernetes.
 
-> [!NOTE]
-> **v3.0.0 is the next major release.** The Go-based `scrt` binary, automated CI/CD pipeline, and semantic versioning are all in place. See [Releases](https://github.com/alexrf45/SCRT/releases) for the latest binary and changelog.
-
 ---
 
 ## Features
@@ -97,7 +94,7 @@ scrt config edit   # open in $VISUAL / $EDITOR / vi
 
 ### Contributing
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/) to drive automated semantic versioning.
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) to drive automated semantic versioning via [release-please](https://github.com/googleapis/release-please).
 
 | Prefix | Version bump | When to use |
 |---|---|---|
@@ -105,6 +102,11 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/) t
 | `fix:` | patch | Bug fix |
 | `feat!:` / `BREAKING CHANGE:` | major | Breaking change |
 | `chore:`, `docs:`, `ci:` | none | No release |
+
+Merging a `feat:` or `fix:` commit to `main` causes release-please to open a release PR. Merging that PR creates the version tag, which triggers the release pipeline — tests, binary upload, and Docker image push. The pipeline can also be re-triggered manually from **Actions → Release → Run workflow**.
+
+> [!NOTE]
+> Avoid Go-style function calls (e.g. `foo(bar)`) in commit message bodies — the release-please parser treats `(` as a scope delimiter and will silently skip the commit.
 
 ---
 
