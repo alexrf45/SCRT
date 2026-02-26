@@ -81,6 +81,19 @@ scrt config edit   # open in $VISUAL / $EDITOR / vi
 
 ---
 
+### Contributing
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) to drive automated semantic versioning.
+
+| Prefix | Version bump | When to use |
+|---|---|---|
+| `feat:` | minor | New feature |
+| `fix:` | patch | Bug fix |
+| `feat!:` / `BREAKING CHANGE:` | major | Breaking change |
+| `chore:`, `docs:`, `ci:` | none | No release |
+
+---
+
 ### Custom aliases included
 
 ```bash

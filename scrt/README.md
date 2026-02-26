@@ -161,6 +161,28 @@ SCRT is written in Go using `os/exec` to shell out to the Docker CLI for contain
 - **Reproducible builds**: `-trimpath` with version injection via `-ldflags` (CI-2)
 - **Terminal UI**: [lipgloss](https://github.com/charmbracelet/lipgloss) for styling and [bubbles](https://github.com/charmbracelet/bubbles) for the container list table
 
+## Contributing
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) to drive automated semantic versioning via [release-please](https://github.com/googleapis/release-please).
+
+| Prefix | Version bump | When to use |
+|---|---|---|
+| `feat:` | minor (x.**Y**.0) | New user-facing feature |
+| `fix:` | patch (x.y.**Z**) | Bug fix |
+| `feat!:` or `BREAKING CHANGE:` in body | major (**X**.0.0) | Breaking change |
+| `chore:`, `docs:`, `ci:`, `refactor:`, `test:` | none | No release needed |
+
+```bash
+# Examples
+git commit -m "feat: add JSON output flag to list command"
+git commit -m "fix: handle missing DISPLAY gracefully when X11 disabled"
+git commit -m "feat!: rename config fields for consistency
+
+BREAKING CHANGE: docker_image renamed to image in config file"
+```
+
+Merging a `feat:` or `fix:` commit to `main` causes release-please to open a release PR. Merging that PR creates the version tag, which triggers the full release pipeline (binary build + Docker image push).
+
 ## Container Image
 
 The SCRT container image (`fonalex45/scrt`) is a Kali Linux base with curated security tooling. See `sources/` for the full tool list. Key categories:
