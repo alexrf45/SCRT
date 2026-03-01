@@ -201,21 +201,18 @@ func (m *Manager) List(ctx context.Context) ([]Info, error) {
 }
 
 // Pull downloads a Docker image from the registry via the Docker SDK.
-// Progress output is streamed to stdout.
+// The response body is drained to ensure the pull completes; callers are
+// responsible for progress display (e.g. via tui.RunWithSpinner).
 func (m *Manager) Pull(ctx context.Context, image string) error {
-	m.logger.Info("pulling image", "image", image)
-
 	reader, err := m.client.ImagePull(ctx, image, imagetypes.PullOptions{})
 	if err != nil {
 		return fmt.Errorf("pull image %s: %w", image, err)
 	}
 	defer reader.Close()
 
-	if _, err := io.Copy(os.Stdout, reader); err != nil {
-		return fmt.Errorf("read pull progress %s: %w", image, err)
+	if _, err := io.Copy(io.Discard, reader); err != nil {
+		return fmt.Errorf("pull %s: %w", image, err)
 	}
-
-	m.logger.Info("image pulled", "image", image)
 	return nil
 }
 
@@ -243,11 +240,9 @@ func (m *Manager) ImportBackup(ctx context.Context, p ImportParams) error {
 	}
 	defer resp.Close()
 
-	if _, err := io.Copy(os.Stdout, resp); err != nil {
-		return fmt.Errorf("read import response: %w", err)
+	if _, err := io.Copy(io.Discard, resp); err != nil {
+		return fmt.Errorf("import %s: %w", p.File, err)
 	}
-
-	m.logger.Info("image imported", "file", p.File, "ref", ref)
 	return nil
 }
 

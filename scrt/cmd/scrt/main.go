@@ -185,7 +185,17 @@ func newStopCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 			}
 			defer mgr.Close()
 
-			return mgr.Stop(ctx, projectName)
+			logger.SetLevel(charmlog.ErrorLevel)
+			err = tui.RunWithSpinner("Stopping "+projectName, func() error {
+				return mgr.Stop(ctx, projectName)
+			})
+			logger.SetLevel(charmlog.InfoLevel)
+			if err != nil {
+				return err
+			}
+
+			printSuccess("Stopped " + projectName)
+			return nil
 		},
 	}
 }
@@ -226,12 +236,18 @@ func newDestroyCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Conf
 				}
 			}
 
-			// Remove container (ignore not-found — may have been removed already)
-			if err := mgr.Destroy(ctx, projectName); err != nil {
-				if !errors.Is(err, container.ErrContainerNotFound) {
-					return err
+			// Remove container (ignore not-found — may have been removed already).
+			logger.SetLevel(charmlog.ErrorLevel)
+			destroyErr := tui.RunWithSpinner("Destroying container "+projectName, func() error {
+				return mgr.Destroy(ctx, projectName)
+			})
+			logger.SetLevel(charmlog.InfoLevel)
+
+			if destroyErr != nil {
+				if !errors.Is(destroyErr, container.ErrContainerNotFound) {
+					return destroyErr
 				}
-				logger.Info("container not found, cleaning up directory only", "project", projectName)
+				printWarn("Container not found; cleaning up project directory only.")
 			}
 
 			// Remove project directory
@@ -239,10 +255,9 @@ func newDestroyCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Conf
 				if err := project.Remove(cfg.WorkDirBase, projectName); err != nil {
 					return err
 				}
-				logger.Info("project directory removed", "project", projectName)
 			}
 
-			logger.Info("project destroyed", "project", projectName)
+			printSuccess("Destroyed " + projectName)
 			return nil
 		},
 	}
@@ -314,14 +329,23 @@ func newPullCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 					return err
 				}
 				if selected == "" {
-					logger.Info("pull cancelled")
+					printInfo("Pull cancelled.")
 					return nil
 				}
 				img = selected
 			}
 
-			printOp("Pulling " + img)
-			return mgr.Pull(ctx, img)
+			logger.SetLevel(charmlog.ErrorLevel)
+			err = tui.RunWithSpinner("Pulling "+img, func() error {
+				return mgr.Pull(ctx, img)
+			})
+			logger.SetLevel(charmlog.InfoLevel)
+			if err != nil {
+				return err
+			}
+
+			printSuccess("Pulled " + img)
+			return nil
 		},
 	}
 
@@ -354,12 +378,22 @@ func newImportCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 			}
 			defer mgr.Close()
 
-			printOp(fmt.Sprintf("Importing %s → %s:%s", file, repo, tag))
-			return mgr.ImportBackup(ctx, container.ImportParams{
-				File: file,
-				Repo: repo,
-				Tag:  tag,
+			ref := fmt.Sprintf("%s:%s", repo, tag)
+			logger.SetLevel(charmlog.ErrorLevel)
+			err = tui.RunWithSpinner(fmt.Sprintf("Importing %s → %s", file, ref), func() error {
+				return mgr.ImportBackup(ctx, container.ImportParams{
+					File: file,
+					Repo: repo,
+					Tag:  tag,
+				})
 			})
+			logger.SetLevel(charmlog.InfoLevel)
+			if err != nil {
+				return err
+			}
+
+			printSuccess("Imported " + file + " as " + ref)
+			return nil
 		},
 	}
 

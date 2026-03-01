@@ -7,6 +7,16 @@ import (
 )
 
 var (
+	styleSuccess = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("42")).
+			Bold(true)
+
+	styleInfo = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("69"))
+
+	styleWarn = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214"))
+
 	styleConfigKey = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("69")).
 			Width(20)
@@ -30,4 +40,19 @@ var (
 // Format:  →  <message>
 func printOp(message string) {
 	fmt.Printf("%s  %s\n", styleOp.Render("→"), message)
+}
+
+// printSuccess prints a green ✓ confirmation line.
+func printSuccess(message string) {
+	fmt.Printf("%s  %s\n", styleSuccess.Render("✓"), message)
+}
+
+// printInfo prints a blue informational line.
+func printInfo(message string) {
+	fmt.Printf("%s  %s\n", styleInfo.Render("·"), message)
+}
+
+// printWarn prints an orange warning line.
+func printWarn(message string) {
+	fmt.Printf("%s  %s\n", styleWarn.Render("!"), message)
 }

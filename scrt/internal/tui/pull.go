@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -21,12 +22,15 @@ func runPullDialog(baseImage string) (string, error) {
 	app := tview.NewApplication()
 	result := ""
 
+	// Strip any existing tag so we build a clean repo:tag reference.
+	repo := stripImageTag(baseImage)
+
 	// Track the currently selected tag option.
 	currentTag := "latest"
 
 	form := tview.NewForm()
 	form.SetBorder(true)
-	form.SetTitle(fmt.Sprintf(" Pull: %s ", baseImage))
+	form.SetTitle(fmt.Sprintf(" Pull: %s ", repo))
 	form.SetTitleAlign(tview.AlignLeft)
 
 	customField := tview.NewInputField().
@@ -46,7 +50,7 @@ func runPullDialog(baseImage string) (string, error) {
 				return // require a custom tag value before proceeding
 			}
 		}
-		result = baseImage + ":" + tag
+		result = repo + ":" + tag
 		app.Stop()
 	})
 
@@ -78,4 +82,22 @@ func runPullDialog(baseImage string) (string, error) {
 	}
 
 	return result, nil
+}
+
+// stripImageTag returns the image reference without its tag.
+// Examples: "fonalex45/scrt:latest" → "fonalex45/scrt"
+//
+//	"registry.example.com:5000/img:v1" → "registry.example.com:5000/img"
+//	"fonalex45/scrt" → "fonalex45/scrt"
+func stripImageTag(image string) string {
+	idx := strings.LastIndex(image, ":")
+	if idx == -1 {
+		return image
+	}
+	// If the substring after the last colon contains a slash it is a
+	// registry port (e.g. "registry:5000/img"), not a tag — leave it.
+	if strings.Contains(image[idx+1:], "/") {
+		return image
+	}
+	return image[:idx]
 }
