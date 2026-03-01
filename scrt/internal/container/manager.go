@@ -114,8 +114,6 @@ func (m *Manager) Enter(ctx context.Context, project, shell string) error {
 		}
 	}
 
-	m.logger.Info("entering container", "project", project)
-
 	// docker exec -it requires direct terminal access; use CLI exec.
 	cmd := exec.CommandContext(ctx, "docker", "exec", "-it", project, shell)
 	cmd.Stdin = os.Stdin
@@ -137,17 +135,13 @@ func (m *Manager) Stop(ctx context.Context, project string) error {
 	}
 
 	if !running {
-		m.logger.Info("container is already stopped", "project", project)
-		return nil
+		return nil // already stopped; not an error
 	}
-
-	m.logger.Info("stopping container", "project", project)
 
 	if err := m.client.ContainerStop(ctx, project, containertypes.StopOptions{}); err != nil {
 		return fmt.Errorf("stop container %s: %w", project, err)
 	}
 
-	m.logger.Info("container stopped", "project", project)
 	return nil
 }
 
@@ -159,13 +153,10 @@ func (m *Manager) Destroy(ctx context.Context, project string) error {
 		return fmt.Errorf("%w: %s", ErrContainerNotFound, project)
 	}
 
-	m.logger.Info("destroying container", "project", project)
-
 	if err := m.client.ContainerRemove(ctx, project, containertypes.RemoveOptions{Force: true}); err != nil {
 		return fmt.Errorf("remove container %s: %w", project, err)
 	}
 
-	m.logger.Info("container destroyed", "project", project)
 	return nil
 }
 
