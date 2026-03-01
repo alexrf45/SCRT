@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/alexrf45/scrt/internal/container"
 	"github.com/gdamore/tcell/v2"
@@ -23,8 +24,9 @@ type ListParams struct {
 }
 
 const (
-	listHeaderRow = 0
-	listDataStart = 1
+	listHeaderRow    = 0
+	listDataStart    = 1
+	statusClearDelay = 3 * time.Second
 )
 
 // RunList launches the interactive container browser. Blocks until the user quits.
@@ -58,14 +60,16 @@ func renderStaticList(containers []container.Info) error {
 func runInteractiveList(p ListParams) error {
 	app := tview.NewApplication()
 
-	var lastErr error
+	var (
+		lastErr error
+		busy    bool // guards against concurrent Docker ops; only touched on main goroutine
+	)
 
 	table := tview.NewTable().SetBorders(false).SetSelectable(true, false)
 	populateTable(table, p.Containers)
 
-	footer := tview.NewTextView().
-		SetDynamicColors(true).
-		SetText("[yellow]↑↓/jk[white] nav  [yellow]e[white]nter  [yellow]s[white]top  [yellow]d[white]estroy  [yellow]b[white]ackup  [yellow]r[white]efresh  [yellow]q[white]uit")
+	footer := tview.NewTextView().SetDynamicColors(true)
+	footerHints(footer)
 
 	mainPage := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(table, 0, 1, true).
@@ -73,10 +77,43 @@ func runInteractiveList(p ListParams) error {
 
 	pages := tview.NewPages().AddPage("main", mainPage, true, true)
 
+	// startOp marks the UI as busy and updates the footer. Returns false if
+	// another op is already in flight; callers must check and bail out.
+	// Must only be called on the tview main goroutine.
+	startOp := func(msg string) bool {
+		if busy {
+			return false
+		}
+		busy = true
+		footer.SetText("[yellow]" + msg)
+		return true
+	}
+
+	// finishOp clears the busy flag, shows a success or error message, and
+	// schedules the hint bar to restore after statusClearDelay.
+	// Must only be called via app.QueueUpdateDraw (i.e. on the main goroutine).
+	finishOp := func(successMsg string, err error) {
+		busy = false
+		if err != nil {
+			footer.SetText("[red]✗  " + err.Error())
+		} else {
+			footer.SetText("[green]✓  " + successMsg)
+		}
+		// Restore hints only if no new op has started by the time the timer fires.
+		go func() {
+			time.Sleep(statusClearDelay)
+			app.QueueUpdateDraw(func() {
+				if !busy {
+					footerHints(footer)
+				}
+			})
+		}()
+	}
+
 	table.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		row, _ := table.GetSelection()
 
-		// Global navigation and quit.
+		// Navigation and quit — always responsive even while ops are running.
 		switch event.Rune() {
 		case 'q':
 			app.Stop()
@@ -92,13 +129,12 @@ func runInteractiveList(p ListParams) error {
 			}
 			return nil
 		}
-
 		if event.Key() == tcell.KeyEscape {
 			app.Stop()
 			return nil
 		}
 
-		// Actions below require a data row to be selected.
+		// Action keys require a data row.
 		if row < listDataStart {
 			return event
 		}
@@ -107,6 +143,10 @@ func runInteractiveList(p ListParams) error {
 
 		switch event.Rune() {
 		case 'e':
+			if busy {
+				return nil
+			}
+			// Suspend hands terminal control to docker exec -it, then resumes tview.
 			app.Suspend(func() {
 				if err := p.OnEnter(name); err != nil {
 					lastErr = err
@@ -115,45 +155,77 @@ func runInteractiveList(p ListParams) error {
 			return nil
 
 		case 's':
-			showConfirm(app, pages, fmt.Sprintf("Stop container %q?", name), func() {
-				if err := p.OnStop(name); err != nil {
-					lastErr = err
+			if busy {
+				return nil
+			}
+			showConfirm(app, pages, table, fmt.Sprintf("Stop container %q?", name), func() {
+				if !startOp("Stopping " + name + "…") {
 					return
 				}
-				if containers, err := p.OnRefresh(); err == nil {
-					populateTable(table, containers)
-					app.Draw()
-				}
+				go func() {
+					err := p.OnStop(name)
+					app.QueueUpdateDraw(func() {
+						if err == nil {
+							if containers, rerr := p.OnRefresh(); rerr == nil {
+								populateTable(table, containers)
+							}
+						}
+						finishOp("Stopped "+name, err)
+					})
+				}()
 			})
 			return nil
 
 		case 'd':
-			showConfirm(app, pages,
-				fmt.Sprintf("Destroy container %q?\nThis action cannot be undone.", name),
+			if busy {
+				return nil
+			}
+			showConfirm(app, pages, table,
+				fmt.Sprintf("Destroy %q?\nThis cannot be undone.", name),
 				func() {
-					if err := p.OnDestroy(name); err != nil {
-						lastErr = err
+					if !startOp("Destroying " + name + "…") {
 						return
 					}
-					if containers, err := p.OnRefresh(); err == nil {
-						populateTable(table, containers)
-						app.Draw()
-					}
+					go func() {
+						err := p.OnDestroy(name)
+						app.QueueUpdateDraw(func() {
+							if err == nil {
+								if containers, rerr := p.OnRefresh(); rerr == nil {
+									populateTable(table, containers)
+								}
+							}
+							finishOp("Destroyed "+name, err)
+						})
+					}()
 				},
 			)
 			return nil
 
 		case 'b':
-			if err := p.OnBackup(name); err != nil {
-				lastErr = err
+			if !startOp("Backing up " + name + "…") {
+				return nil
 			}
+			go func() {
+				err := p.OnBackup(name)
+				app.QueueUpdateDraw(func() {
+					finishOp("Backup complete — "+name, err)
+				})
+			}()
 			return nil
 
 		case 'r':
-			if containers, err := p.OnRefresh(); err == nil {
-				populateTable(table, containers)
-				app.Draw()
+			if !startOp("Refreshing…") {
+				return nil
 			}
+			go func() {
+				containers, err := p.OnRefresh()
+				app.QueueUpdateDraw(func() {
+					if err == nil {
+						populateTable(table, containers)
+					}
+					finishOp("Refreshed", err)
+				})
+			}()
 			return nil
 		}
 
@@ -163,7 +235,6 @@ func runInteractiveList(p ListParams) error {
 	if err := app.SetRoot(pages, true).EnableMouse(true).Run(); err != nil {
 		return fmt.Errorf("tui list: %w", err)
 	}
-
 	return lastErr
 }
 
@@ -203,14 +274,20 @@ func populateTable(table *tview.Table, containers []container.Info) {
 	}
 }
 
-// showConfirm displays a modal confirmation dialog over the given pages.
-// onConfirm is called only when the user selects "Confirm".
-func showConfirm(app *tview.Application, pages *tview.Pages, msg string, onConfirm func()) {
+// footerHints sets the key-hint bar in the footer.
+func footerHints(tv *tview.TextView) {
+	tv.SetText("[yellow]↑↓/jk[white] nav  [yellow]e[white]nter  [yellow]s[white]top  [yellow]d[white]estroy  [yellow]b[white]ackup  [yellow]r[white]efresh  [yellow]q[white]uit")
+}
+
+// showConfirm displays a modal confirmation dialog. focusBack receives focus
+// when the dialog is dismissed. onConfirm is called only on "Confirm".
+func showConfirm(app *tview.Application, pages *tview.Pages, focusBack tview.Primitive, msg string, onConfirm func()) {
 	modal := tview.NewModal().
 		SetText(msg).
 		AddButtons([]string{"Confirm", "Cancel"}).
 		SetDoneFunc(func(_ int, buttonLabel string) {
 			pages.RemovePage("confirm")
+			app.SetFocus(focusBack)
 			if buttonLabel == "Confirm" {
 				onConfirm()
 			}
