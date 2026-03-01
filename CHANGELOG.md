@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.3](https://github.com/alexrf45/SCRT/compare/v3.0.2...v3.0.3) (2026-03-01)
+
+
+### Bug Fixes
+
+* remove logger.Info calls from Stop, Destroy, and Enter ([71eb468](https://github.com/alexrf45/SCRT/commit/71eb468d55f02ab6ae20bab73a97869e5e164bf5))
+
 ## [3.0.2](https://github.com/alexrf45/SCRT/compare/v3.0.1...v3.0.2) (2026-03-01)
 
 
