@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1](https://github.com/alexrf45/SCRT/compare/v3.0.0...v3.0.1) (2026-03-01)
+
+
+### Bug Fixes
+
+* resolve double-tag bug in pull dialog and add bubbletea spinner ([bd52445](https://github.com/alexrf45/SCRT/commit/bd52445500be7a78e7bb899d4538ab7b67729fd0))
+
 ## [3.0.0](https://github.com/alexrf45/SCRT/compare/v2.0.3...v3.0.0) (2026-03-01)
 
 
