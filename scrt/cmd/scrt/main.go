@@ -13,9 +13,8 @@ import (
 	"github.com/alexrf45/scrt/internal/config"
 	"github.com/alexrf45/scrt/internal/container"
 	"github.com/alexrf45/scrt/internal/project"
-	"github.com/charmbracelet/bubbles/table"
+	"github.com/alexrf45/scrt/internal/tui"
 	charmlog "github.com/charmbracelet/log"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
@@ -48,7 +47,8 @@ func main() {
 		newDestroyCmd(ctx, logger, cfg),
 		newBackupCmd(logger, cfg),
 		newPullCmd(ctx, logger),
-		newListCmd(ctx, logger),
+		newImportCmd(ctx, logger),
+		newListCmd(ctx, logger, cfg),
 		newConfigCmd(logger, cfg),
 		newVersionCmd(),
 	)
@@ -297,6 +297,7 @@ func newPullCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pull",
 		Short: "Pull/update SCRT container image",
+		Long:  "Pull a Docker image. Without --image, an interactive tag-selection dialog is shown in a TTY.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mgr, err := container.NewManager(ctx, logger)
@@ -307,7 +308,16 @@ func newPullCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 
 			img := imageName
 			if img == "" {
-				img = config.DefaultImage
+				// Show interactive dialog in a TTY; fall back to default otherwise.
+				selected, err := tui.RunPullDialog(config.DefaultImage)
+				if err != nil {
+					return err
+				}
+				if selected == "" {
+					logger.Info("pull cancelled")
+					return nil
+				}
+				img = selected
 			}
 
 			printOp("Pulling " + img)
@@ -315,7 +325,46 @@ func newPullCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&imageName, "image", "", "Image to pull (default: "+config.DefaultImage+")")
+	cmd.Flags().StringVar(&imageName, "image", "", "Image to pull (e.g. fonalex45/scrt:dev); shows interactive dialog if omitted")
+	return cmd
+}
+
+// ---------------------------------------------------------------------------
+// import
+// ---------------------------------------------------------------------------
+
+func newImportCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
+	var repo, tag string
+
+	cmd := &cobra.Command{
+		Use:   "import <file>",
+		Short: "Import a backup tar archive as a Docker image",
+		Long:  "Import a container backup tar archive as a new Docker image using the Docker SDK.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			file := args[0]
+
+			if repo == "" {
+				return fmt.Errorf("--repo is required (e.g. fonalex45/scrt)")
+			}
+
+			mgr, err := container.NewManager(ctx, logger)
+			if err != nil {
+				return err
+			}
+			defer mgr.Close()
+
+			printOp(fmt.Sprintf("Importing %s → %s:%s", file, repo, tag))
+			return mgr.ImportBackup(ctx, container.ImportParams{
+				File: file,
+				Repo: repo,
+				Tag:  tag,
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&repo, "repo", "", "Repository name (e.g. fonalex45/scrt)")
+	cmd.Flags().StringVar(&tag, "tag", "imported", "Image tag")
 	return cmd
 }
 
@@ -323,10 +372,11 @@ func newPullCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 // list
 // ---------------------------------------------------------------------------
 
-func newListCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
+func newListCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all SCRT containers",
+		Long:  "Display SCRT containers. In a TTY, launches an interactive browser with keyboard actions.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mgr, err := container.NewManager(ctx, logger)
@@ -341,37 +391,33 @@ func newListCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 			}
 
 			if len(containers) == 0 {
-				fmt.Println(styleStopped.Render("No SCRT containers found"))
+				fmt.Println("No SCRT containers found.")
 				return nil
 			}
 
-			cols := []table.Column{
-				{Title: "NAME", Width: colWidthName},
-				{Title: "STATE", Width: colWidthState},
-				{Title: "IMAGE", Width: colWidthImage},
-				{Title: "STATUS", Width: colWidthStatus},
-			}
-
-			rows := make([]table.Row, len(containers))
-			for i, c := range containers {
-				rows[i] = table.Row{c.Name, renderState(c.State), c.Image, c.Status}
-			}
-
-			t := table.New(
-				table.WithColumns(cols),
-				table.WithRows(rows),
-				table.WithHeight(len(rows)+1),
-			)
-
-			s := table.DefaultStyles()
-			s.Header = styleHeader
-			s.Cell = styleCell
-			// Disable selection highlight — static render only.
-			s.Selected = lipgloss.NewStyle()
-			t.SetStyles(s)
-
-			fmt.Println(t.View())
-			return nil
+			return tui.RunList(tui.ListParams{
+				Containers: containers,
+				OnEnter: func(name string) error {
+					return mgr.Enter(ctx, name, cfg.ContainerShell)
+				},
+				OnStop: func(name string) error {
+					return mgr.Stop(ctx, name)
+				},
+				OnDestroy: func(name string) error {
+					return mgr.Destroy(ctx, name)
+				},
+				OnBackup: func(name string) error {
+					_, err := project.Backup(project.BackupParams{
+						BaseDir:   cfg.WorkDirBase,
+						Project:   name,
+						BackupDir: config.DefaultBackupDir,
+					})
+					return err
+				},
+				OnRefresh: func() ([]container.Info, error) {
+					return mgr.List(ctx)
+				},
+			})
 		},
 	}
 }
