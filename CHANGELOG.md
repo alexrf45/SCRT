@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/alexrf45/SCRT/compare/v2.0.3...v3.0.0) (2026-03-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* scrt list now launches a tview TUI instead of a static bubbles table when running in a TTY.
+
+### Features
+
+* migrate to Docker SDK and tview interactive TUI (v3.0.0) ([26f069b](https://github.com/alexrf45/SCRT/commit/26f069b5b4150ab1d00d174239e05aee3baef4e9))
+
 ## [2.0.2](https://github.com/alexrf45/SCRT/compare/v2.0.1...v2.0.2) (2026-02-26)
 
 
