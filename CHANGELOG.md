@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.2](https://github.com/alexrf45/SCRT/compare/v3.0.1...v3.0.2) (2026-03-01)
+
+
+### Bug Fixes
+
+* run tui list callbacks in goroutines to prevent event loop freeze ([fae7606](https://github.com/alexrf45/SCRT/commit/fae76061008f893de07294bdbe1228f5a50f5629))
+
 ## [3.0.1](https://github.com/alexrf45/SCRT/compare/v3.0.0...v3.0.1) (2026-03-01)
 
 
