@@ -28,6 +28,8 @@ type mockBackend struct {
 	listFn         func(context.Context) ([]container.Info, error)
 	pullFn         func(context.Context, string) error
 	importBackupFn func(context.Context, container.ImportParams) error
+	webExecFn      func(context.Context, container.WebExecParams) (*container.ExecSession, error)
+	resizeExecFn   func(context.Context, container.ResizeExecParams) error
 	closeFn        func() error
 }
 
@@ -76,6 +78,20 @@ func (m *mockBackend) Pull(ctx context.Context, image string) error {
 func (m *mockBackend) ImportBackup(ctx context.Context, p container.ImportParams) error {
 	if m.importBackupFn != nil {
 		return m.importBackupFn(ctx, p)
+	}
+	return nil
+}
+
+func (m *mockBackend) WebExec(ctx context.Context, p container.WebExecParams) (*container.ExecSession, error) {
+	if m.webExecFn != nil {
+		return m.webExecFn(ctx, p)
+	}
+	return nil, nil
+}
+
+func (m *mockBackend) ResizeExec(ctx context.Context, p container.ResizeExecParams) error {
+	if m.resizeExecFn != nil {
+		return m.resizeExecFn(ctx, p)
 	}
 	return nil
 }
