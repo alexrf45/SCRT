@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/alexrf45/scrt/internal/backend"
 	"github.com/alexrf45/scrt/internal/config"
 	"github.com/alexrf45/scrt/internal/container"
 	"github.com/alexrf45/scrt/internal/project"
@@ -89,7 +90,7 @@ func newStartCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config
 				return err
 			}
 
-			mgr, err := container.NewManager(ctx, logger)
+			mgr, err := backend.New(ctx, logger)
 			if err != nil {
 				return err
 			}
@@ -151,7 +152,7 @@ func newEnterCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config
 				return err
 			}
 
-			mgr, err := container.NewManager(ctx, logger)
+			mgr, err := backend.New(ctx, logger)
 			if err != nil {
 				return err
 			}
@@ -179,7 +180,7 @@ func newStopCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 				return err
 			}
 
-			mgr, err := container.NewManager(ctx, logger)
+			mgr, err := backend.New(ctx, logger)
 			if err != nil {
 				return err
 			}
@@ -219,7 +220,7 @@ func newDestroyCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Conf
 				return err
 			}
 
-			mgr, err := container.NewManager(ctx, logger)
+			mgr, err := backend.New(ctx, logger)
 			if err != nil {
 				return err
 			}
@@ -315,7 +316,7 @@ func newPullCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 		Long:  "Pull a Docker image. Without --image, an interactive tag-selection dialog is shown in a TTY.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			mgr, err := container.NewManager(ctx, logger)
+			mgr, err := backend.New(ctx, logger)
 			if err != nil {
 				return err
 			}
@@ -372,7 +373,7 @@ func newImportCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 				return fmt.Errorf("--repo is required (e.g. fonalex45/scrt)")
 			}
 
-			mgr, err := container.NewManager(ctx, logger)
+			mgr, err := backend.New(ctx, logger)
 			if err != nil {
 				return err
 			}
@@ -413,7 +414,7 @@ func newListCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config)
 		Long:  "Display SCRT containers. In a TTY, launches an interactive browser with keyboard actions.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			mgr, err := container.NewManager(ctx, logger)
+			mgr, err := backend.New(ctx, logger)
 			if err != nil {
 				return err
 			}
