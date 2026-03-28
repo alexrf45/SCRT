@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.1](https://github.com/alexrf45/SCRT/compare/v3.1.0...v3.1.1) (2026-03-28)
+
+
+### Bug Fixes
+
+* **api:** correct Info JSON tag Names→Name so web UI displays container names ([12824db](https://github.com/alexrf45/SCRT/commit/12824dbe0da27ce95a7727da168dd94ba86c6b89))
+* **ui:** handle non-JSON error responses in apiFetch; prevent redirect-to-HTML bug ([9a8d03f](https://github.com/alexrf45/SCRT/commit/9a8d03ffe30ac5a7651a779343b4503e467dadca))
+
 ## [3.1.0](https://github.com/alexrf45/SCRT/compare/v3.0.4...v3.1.0) (2026-03-28)
 
 
