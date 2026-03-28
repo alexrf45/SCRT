@@ -36,8 +36,12 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
+          context: scrt
+          file: scrt/Dockerfile
           push: true
           tags: fonalex45/scrt:dev
+          build-args: VERSION=dev
+          platforms: linux/amd64,linux/arm64
 
       - name: Notify Slack — result
         uses: act10ns/slack@v2

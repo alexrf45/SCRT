@@ -1,0 +1,55 @@
+# SCRT — Docker Compose deployment
+#
+# Deploys the scrt control plane in serve mode behind Caddy (automatic HTTPS).
+# Targets a single Linux host with Docker installed.
+#
+# Usage:
+#   cp .env.example .env        # set SCRT_TOKEN and DOMAIN
+#   docker compose up -d
+#
+# The scrt port is NOT exposed to the host — only Caddy reaches it.
+
+services:
+  scrt:
+    image: ghcr.io/alexrf45/scrt:latest
+    restart: unless-stopped
+    command: ["serve", "--addr", ":8080"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - scrt-workspaces:/workspaces
+      - scrt-config:/root
+    environment:
+      SCRT_WORKDIR: /workspaces
+      SCRT_TOKEN: ${SCRT_TOKEN:?SCRT_TOKEN must be set in .env}
+    expose:
+      - "8080"
+    networks:
+      - internal
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - internal
+      - external
+    depends_on:
+      - scrt
+
+volumes:
+  scrt-workspaces:
+  scrt-config:
+  caddy-data:
+  caddy-config:
+
+networks:
+  internal:
+    internal: true
+  external:

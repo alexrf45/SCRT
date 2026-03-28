@@ -1,0 +1,33 @@
+# Requires:
+#   - nginx ingress controller (or swap ingressClassName)
+#   - cert-manager with a ClusterIssuer named letsencrypt-prod
+#
+# Apply cert-manager first:
+#   kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+#
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: scrt
+  namespace: scrt
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - lab.yourdomain.com   # replace with your domain
+      secretName: scrt-tls
+  rules:
+    - host: lab.yourdomain.com   # replace with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: scrt
+                port:
+                  number: 8080

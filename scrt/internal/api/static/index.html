@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCRT</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #0d1117;
+            color: #c9d1d9;
+            font-family: 'Courier New', monospace;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        h1 { color: #58a6ff; font-size: 1.4rem; margin-bottom: 0.2rem; }
+        .subtitle { color: #6e7681; font-size: 0.8rem; margin-bottom: 2rem; }
+
+        /* Auth */
+        #auth-form { max-width: 380px; }
+        #auth-form input {
+            width: 100%;
+            background: #161b22;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 0.5rem 0.75rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+            border-radius: 4px;
+            margin-bottom: 0.75rem;
+            outline: none;
+        }
+        #auth-form input:focus { border-color: #58a6ff; }
+        #auth-error { color: #f85149; font-size: 0.8rem; margin-top: 0.4rem; min-height: 1.1rem; }
+
+        /* Buttons */
+        button {
+            background: #238636;
+            border: 1px solid transparent;
+            color: #fff;
+            padding: 0.35rem 0.85rem;
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.8rem;
+        }
+        button:hover { opacity: 0.85; }
+        button.danger  { background: #b91c1c; }
+        button.warn    { background: #92400e; }
+        button.muted   { background: #21262d; border-color: #30363d; color: #c9d1d9; }
+
+        /* Status bar */
+        #status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            font-size: 0.78rem;
+            color: #6e7681;
+        }
+        #status-msg { color: #3fb950; min-width: 12rem; }
+        #status-msg.err { color: #f85149; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        thead th {
+            text-align: left;
+            padding: 0.4rem 0.75rem;
+            border-bottom: 1px solid #21262d;
+            color: #6e7681;
+            font-weight: normal;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.06em;
+        }
+        tbody tr { border-bottom: 1px solid #161b22; }
+        tbody tr:hover { background: #161b22; }
+        td { padding: 0.55rem 0.75rem; vertical-align: middle; }
+        .running { color: #3fb950; }
+        .exited  { color: #f85149; }
+        .other   { color: #d29922; }
+        .actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+        .dim { color: #6e7681; }
+
+        #main { display: none; }
+    </style>
+</head>
+<body>
+
+<h1>SCRT</h1>
+<p class="subtitle">Security Research Container Toolkit</p>
+
+<div id="auth-form">
+    <input type="password" id="token-input" placeholder="Bearer token" autocomplete="off" />
+    <button onclick="authenticate()">Connect</button>
+    <p id="auth-error"></p>
+</div>
+
+<div id="main">
+    <div id="status-bar">
+        <span id="status-msg">Connected</span>
+        <span>
+            Refresh: 10s &nbsp;
+            <button class="muted" onclick="loadContainers()">↺ Refresh</button>
+            &nbsp;
+            <button class="muted" onclick="logout()">Disconnect</button>
+        </span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>State</th>
+                <th>Status</th>
+                <th>Image</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="tbody">
+            <tr><td colspan="5" class="dim" style="text-align:center;padding:1.5rem;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    'use strict';
+
+    let token = sessionStorage.getItem('scrt_token') || '';
+    let timer = null;
+
+    if (token) showDashboard();
+
+    function authenticate() {
+        token = document.getElementById('token-input').value.trim();
+        if (!token) return;
+        apiFetch('GET', '/api/v1/containers')
+            .then(() => {
+                sessionStorage.setItem('scrt_token', token);
+                document.getElementById('auth-error').textContent = '';
+                showDashboard();
+            })
+            .catch(e => {
+                document.getElementById('auth-error').textContent = e.message || 'Connection failed';
+                token = '';
+            });
+    }
+
+    function showDashboard() {
+        document.getElementById('auth-form').style.display = 'none';
+        document.getElementById('main').style.display = 'block';
+        loadContainers();
+        timer = setInterval(loadContainers, 10000);
+    }
+
+    function logout() {
+        clearInterval(timer);
+        token = '';
+        sessionStorage.removeItem('scrt_token');
+        document.getElementById('auth-form').style.display = 'block';
+        document.getElementById('main').style.display = 'none';
+        document.getElementById('token-input').value = '';
+    }
+
+    function apiFetch(method, path, body) {
+        const opts = {
+            method,
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        };
+        if (body) opts.body = JSON.stringify(body);
+        return fetch(path, opts).then(r => {
+            if (r.status === 401) throw new Error('Invalid token');
+            if (!r.ok && r.status !== 204) return r.json().then(d => { throw new Error(d.error || r.statusText); });
+            return r.status === 204 ? null : r.json();
+        });
+    }
+
+    function setStatus(msg, isErr) {
+        const el = document.getElementById('status-msg');
+        el.textContent = msg;
+        el.className = isErr ? 'err' : '';
+        if (!isErr) setTimeout(() => { el.textContent = 'Connected'; el.className = ''; }, 4000);
+    }
+
+    function loadContainers() {
+        apiFetch('GET', '/api/v1/containers')
+            .then(renderTable)
+            .catch(e => setStatus(e.message, true));
+    }
+
+    function renderTable(containers) {
+        const tbody = document.getElementById('tbody');
+        if (!containers || containers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="dim" style="text-align:center;padding:1.5rem;">No SCRT containers found</td></tr>';
+            return;
+        }
+        tbody.innerHTML = containers.map(c => {
+            const stateClass = c.State === 'running' ? 'running' : c.State === 'exited' ? 'exited' : 'other';
+            const stopBtn = c.State === 'running'
+                ? `<button class="warn" onclick="stopContainer('${esc(c.Name)}')">Stop</button>`
+                : '';
+            return `<tr>
+                <td><strong>${esc(c.Name)}</strong></td>
+                <td class="${stateClass}">${esc(c.State)}</td>
+                <td class="dim">${esc(c.Status)}</td>
+                <td class="dim">${esc(c.Image)}</td>
+                <td><div class="actions">
+                    ${stopBtn}
+                    <button onclick="backupContainer('${esc(c.Name)}')">Backup</button>
+                    <button class="danger" onclick="destroyContainer('${esc(c.Name)}')">Destroy</button>
+                </div></td>
+            </tr>`;
+        }).join('');
+    }
+
+    function stopContainer(name) {
+        apiFetch('POST', '/api/v1/containers/' + name + '/stop')
+            .then(() => { setStatus('Stopped ' + name); loadContainers(); })
+            .catch(e => setStatus('Stop failed: ' + e.message, true));
+    }
+
+    function destroyContainer(name) {
+        if (!confirm('Destroy ' + name + ' and all project data? This cannot be undone.')) return;
+        apiFetch('POST', '/api/v1/containers/' + name + '/destroy')
+            .then(() => { setStatus('Destroyed ' + name); loadContainers(); })
+            .catch(e => setStatus('Destroy failed: ' + e.message, true));
+    }
+
+    function backupContainer(name) {
+        apiFetch('POST', '/api/v1/containers/' + name + '/backup')
+            .then(d => setStatus('Backup saved: ' + d.file))
+            .catch(e => setStatus('Backup failed: ' + e.message, true));
+    }
+
+    function esc(s) {
+        if (!s) return '';
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    document.getElementById('token-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') authenticate();
+    });
+</script>
+</body>
+</html>

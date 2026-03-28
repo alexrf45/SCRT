@@ -1,0 +1,86 @@
+# SCRT StatefulSet
+#
+# Security posture — read before deploying:
+#   - privileged: true grants full node access. Deploy only to a dedicated,
+#     tainted security research node. Never share with production workloads.
+#   - Socket path varies by distribution — see the volume comment below.
+#   - replicas: 1 is a hard constraint. Two instances sharing the same socket
+#     and workspace PVC will corrupt state.
+#
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: scrt
+  namespace: scrt
+spec:
+  serviceName: scrt
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scrt
+  template:
+    metadata:
+      labels:
+        app: scrt
+    spec:
+      # Pin to a dedicated security research node to isolate the blast radius
+      # of privileged container access.
+      nodeSelector:
+        role: security-research
+      tolerations:
+        - key: security-research
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: scrt
+          image: ghcr.io/alexrf45/scrt:latest
+          args: ["serve", "--addr", ":8080"]
+          env:
+            - name: SCRT_WORKDIR
+              value: /workspaces
+            - name: SCRT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: scrt-token
+                  key: token
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          securityContext:
+            privileged: true   # required — manages containers on the node
+          volumeMounts:
+            - name: workspaces
+              mountPath: /workspaces
+            - name: runtime-socket
+              mountPath: /run/containerd/containerd.sock
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: runtime-socket
+          hostPath:
+            # Adjust path per distribution:
+            #   standard k8s / EKS / GKE / AKS: /run/containerd/containerd.sock
+            #   k3s:                              /run/k3s/containerd/containerd.sock
+            #   Docker-based node:               /var/run/docker.sock
+            path: /run/containerd/containerd.sock
+            type: Socket
+  volumeClaimTemplates:
+    - metadata:
+        name: workspaces
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
