@@ -3,6 +3,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/alexrf45/scrt/internal/api"
 	"github.com/alexrf45/scrt/internal/backend"
 	"github.com/alexrf45/scrt/internal/config"
 	"github.com/alexrf45/scrt/internal/container"
@@ -50,6 +53,7 @@ func main() {
 		newPullCmd(ctx, logger),
 		newImportCmd(ctx, logger),
 		newListCmd(ctx, logger, cfg),
+		newServeCmd(ctx, logger, cfg),
 		newConfigCmd(logger, cfg),
 		newVersionCmd(),
 	)
@@ -561,6 +565,73 @@ func newVersionCmd() *cobra.Command {
 			fmt.Printf("scrt %s\n", version)
 		},
 	}
+}
+
+// ---------------------------------------------------------------------------
+// serve
+// ---------------------------------------------------------------------------
+
+func newServeCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config) *cobra.Command {
+	var addr, token string
+
+	cmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Start the SCRT HTTP API and web UI",
+		Long: `Start an HTTP server exposing the SCRT REST API and a status dashboard.
+Useful for remote lab access. Protect with a reverse proxy (Caddy, nginx) for TLS.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			b, err := backend.New(ctx, logger)
+			if err != nil {
+				return err
+			}
+			defer b.Close()
+
+			tok, err := resolveToken(token, logger)
+			if err != nil {
+				return err
+			}
+
+			srv := api.New(api.ServeParams{
+				Addr:    addr,
+				Token:   tok,
+				Backend: b,
+				Config:  cfg,
+			})
+
+			printInfo("SCRT API listening on " + addr)
+			return srv.Start(ctx)
+		},
+	}
+
+	cmd.Flags().StringVar(&addr, "addr", ":8080", "Listen address (host:port)")
+	cmd.Flags().StringVar(&token, "token", "", "Bearer token (overrides SCRT_TOKEN env var)")
+	return cmd
+}
+
+// resolveToken resolves the bearer token from flag → env → auto-generated.
+func resolveToken(flag string, logger *charmlog.Logger) (string, error) {
+	if flag != "" {
+		return flag, nil
+	}
+	if v := os.Getenv("SCRT_TOKEN"); v != "" {
+		return v, nil
+	}
+	tok, err := generateToken()
+	if err != nil {
+		return "", fmt.Errorf("generate token: %w", err)
+	}
+	logger.Warn("no token configured — generated a one-time token", "token", tok)
+	return tok, nil
+}
+
+// generateToken produces a cryptographically random 32-byte hex token.
+func generateToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
 
 // ---------------------------------------------------------------------------
