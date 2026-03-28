@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0](https://github.com/alexrf45/SCRT/compare/v3.1.1...v3.2.0) (2026-03-28)
+
+
+### Features
+
+* **web-tty:** add WebSocket terminal for browser-based container shell ([75118bf](https://github.com/alexrf45/SCRT/commit/75118bf19cb74021bf93eb4dba082554d753e138))
+
 ## [3.1.1](https://github.com/alexrf45/SCRT/compare/v3.1.0...v3.1.1) (2026-03-28)
 
 
