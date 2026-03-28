@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.4](https://github.com/alexrf45/SCRT/compare/v3.0.3...v3.0.4) (2026-03-28)
+
+
+### Bug Fixes
+
+* **main:** renaming repo ([1a0d3e5](https://github.com/alexrf45/SCRT/commit/1a0d3e557d188b835f5ba4f5dc7bbedb2f9f4acf))
+
 ## [3.0.3](https://github.com/alexrf45/SCRT/compare/v3.0.2...v3.0.3) (2026-03-01)
 
 
