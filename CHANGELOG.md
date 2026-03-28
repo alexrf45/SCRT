@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.1.0](https://github.com/alexrf45/SCRT/compare/v3.0.4...v3.1.0) (2026-03-28)
+
+
+### Features
+
+* add deployment manifests and update README for remote lab ([eeb40a8](https://github.com/alexrf45/SCRT/commit/eeb40a8ea4027cc51d78a56ba3418aaca42371ce))
+* add remote lab design doc, control plane Dockerfile, and dev CI image build ([ed233c2](https://github.com/alexrf45/SCRT/commit/ed233c2927c4c551e0dd0426c5daac3b993549fb))
+* **backend:** introduce Backend interface and tier detection ([62e7a88](https://github.com/alexrf45/SCRT/commit/62e7a88c618dc49f974d4190e81a50ba7f63590d))
+* remote lab foundation — backend abstraction, serve mode, deploy manifests ([#42](https://github.com/alexrf45/SCRT/issues/42)) ([b45ae49](https://github.com/alexrf45/SCRT/commit/b45ae497416d5f34beb90da7681c3bc98a83fdeb))
+* **serve:** add HTTP API, embedded web UI, and scrt serve command ([0bbec1d](https://github.com/alexrf45/SCRT/commit/0bbec1d286ce698037d2202745f416845c49041a))
+
 ## [3.0.4](https://github.com/alexrf45/SCRT/compare/v3.0.3...v3.0.4) (2026-03-28)
 
 
