@@ -19,7 +19,7 @@ import (
 
 // Info holds displayable container metadata.
 type Info struct {
-	Name      string `json:"Names"`
+	Name      string `json:"Name"`
 	Status    string `json:"Status"`
 	State     string `json:"State"`
 	Image     string `json:"Image"`

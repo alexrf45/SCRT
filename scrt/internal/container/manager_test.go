@@ -16,14 +16,14 @@ func TestParseContainerList(t *testing.T) {
 	}{
 		{
 			name:      "single container",
-			input:     `{"Names":"testproj","Status":"Up 2 hours","State":"running","Image":"fonalex45/scrt:latest","CreatedAt":"2025-01-01"}`,
+			input:     `{"Name":"testproj","Status":"Up 2 hours","State":"running","Image":"fonalex45/scrt:latest","CreatedAt":"2025-01-01"}`,
 			wantCount: 1,
 			wantFirst: "testproj",
 		},
 		{
 			name: "multiple containers",
-			input: `{"Names":"proj1","Status":"Up 2 hours","State":"running","Image":"fonalex45/scrt:latest","CreatedAt":"2025-01-01"}
-{"Names":"proj2","Status":"Exited (0)","State":"exited","Image":"fonalex45/scrt:dev","CreatedAt":"2025-01-02"}`,
+			input: `{"Name":"proj1","Status":"Up 2 hours","State":"running","Image":"fonalex45/scrt:latest","CreatedAt":"2025-01-01"}
+{"Name":"proj2","Status":"Exited (0)","State":"exited","Image":"fonalex45/scrt:dev","CreatedAt":"2025-01-02"}`,
 			wantCount: 2,
 			wantFirst: "proj1",
 		},
@@ -34,7 +34,7 @@ func TestParseContainerList(t *testing.T) {
 		},
 		{
 			name:      "malformed line skipped",
-			input:     "not json\n" + `{"Names":"valid","Status":"Up","State":"running","Image":"test","CreatedAt":"now"}`,
+			input:     "not json\n" + `{"Name":"valid","Status":"Up","State":"running","Image":"test","CreatedAt":"now"}`,
 			wantCount: 1,
 			wantFirst: "valid",
 		},
