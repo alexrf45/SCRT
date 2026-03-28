@@ -169,7 +169,13 @@
         if (body) opts.body = JSON.stringify(body);
         return fetch(path, opts).then(r => {
             if (r.status === 401) throw new Error('Invalid token');
-            if (!r.ok && r.status !== 204) return r.json().then(d => { throw new Error(d.error || r.statusText); });
+            if (!r.ok) {
+                return r.text().then(text => {
+                    let msg;
+                    try { msg = JSON.parse(text).error; } catch (_) { msg = r.statusText; }
+                    throw new Error(msg);
+                });
+            }
             return r.status === 204 ? null : r.json();
         });
     }
