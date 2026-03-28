@@ -10,10 +10,7 @@
 
 `SCRT` is a containerized security research environment designed for offensive and defensive operations.
 
-Whether it's recon, exploitation, log analysis, or tool testing, `scrt` gives you consistent environments every time. Avoid dependency hell and save countless hours configuring the host OS. `scrt` runs locally or in the cloud.
-
-> [!NOTE]
-> The container image has not been tested on Kubernetes.
+Whether it's recon, exploitation, log analysis, or tool testing, `scrt` gives you consistent environments every time. Avoid dependency hell and save countless hours configuring the host OS. `scrt` runs locally, on a remote lab host, or in a Kubernetes cluster.
 
 ---
 
@@ -25,6 +22,8 @@ Whether it's recon, exploitation, log analysis, or tool testing, `scrt` gives yo
 - GUI app support (Mousepad, SQLiteViewer) via X11 forwarding
 - Firefox pre-configured with bookmarks, FoxyProxy, and Cookie Modifier
 - Built-in command history with `fzf` for fast filtering (`Ctrl+r`)
+- **Remote lab mode** — `scrt serve` exposes a REST API and web status dashboard
+- **Environment-agnostic** — auto-detects Docker, containerd, or runc at startup
 
 ---
 
@@ -32,8 +31,8 @@ Whether it's recon, exploitation, log analysis, or tool testing, `scrt` gives yo
 
 ### Dependencies
 
-- Docker
-- Linux x86-64 (prebuilt binary) or Go 1.24+ (build from source)
+- Docker (or containerd / runc for daemon-less operation)
+- Linux x86-64 or arm64 (prebuilt binary) — or Go 1.24+ to build from source
 
 ### Install the CLI binary
 
@@ -45,6 +44,15 @@ chmod +x ~/.local/bin/scrt
 ```
 
 Full release history and changelogs: https://github.com/alexrf45/SCRT/releases
+
+### Build from source
+
+```bash
+git clone https://github.com/alexrf45/SCRT.git
+cd SCRT/scrt
+make build        # produces bin/scrt
+make all          # vet + test + build
+```
 
 ---
 
@@ -59,7 +67,9 @@ COMMANDS:
   destroy <project> [--force]         Destroy container and data
   backup <project> [--dir <path>]     Backup project data
   pull [--image <image>]              Pull/update container image
-  list                                List all SCRT containers
+  import <file> --repo <repo>         Import a backup tar as an image
+  list                                List all SCRT containers (TUI or table)
+  serve [--addr :8080] [--token tok]  Start HTTP API and web UI
   config                              Show current configuration
   config edit                         Open config in $EDITOR
   version                             Show version information
@@ -69,6 +79,7 @@ EXAMPLES:
   scrt start myproject --image fonalex45/scrt:dev
   scrt backup myproject --dir ./my-backups
   scrt destroy myproject --force
+  scrt serve --addr :8080 --token $(openssl rand -hex 32)
   scrt config edit
 ```
 
@@ -89,6 +100,78 @@ scrt config edit   # open in $VISUAL / $EDITOR / vi
 | `SCRT_X11` | Set to `false` to disable X11 forwarding | `true` |
 | `SCRT_GPU` | Set to `false` to disable GPU passthrough | `true` |
 | `SCRT_WORKDIR` | Base working directory | current directory |
+| `SCRT_TOKEN` | Bearer token for `scrt serve` API | auto-generated |
+
+---
+
+## Remote Lab Deployment
+
+`scrt serve` starts an HTTP API and web status dashboard. Pair it with a
+reverse proxy for TLS and you have a persistent remote research environment.
+
+### Docker Compose (single host)
+
+```bash
+cd deploy
+cp .env.example .env
+# edit .env: set SCRT_TOKEN and update Caddyfile with your domain
+docker compose up -d
+```
+
+The compose stack runs `scrt` in serve mode behind Caddy (automatic HTTPS via
+ACME). The `scrt` port is never exposed directly — only Caddy reaches it.
+
+```
+internet ──► Caddy :443 (TLS) ──► scrt :8080
+                                      ↕
+                               /var/run/docker.sock
+```
+
+Files: [`deploy/compose.yaml`](deploy/compose.yaml), [`deploy/Caddyfile`](deploy/Caddyfile)
+
+### Kubernetes
+
+Deploys `scrt` as a `StatefulSet` on a dedicated, tainted security research
+node with containerd socket passthrough.
+
+> [!WARNING]
+> The k8s manifest uses `privileged: true`. This grants full node access.
+> Deploy only to a **dedicated, tainted** node — never on shared infrastructure.
+
+```bash
+# Label and taint a dedicated node
+kubectl label node <node> role=security-research
+kubectl taint node <node> security-research=:NoSchedule
+
+# Inject token (never commit a real value to secret.yaml)
+kubectl create secret generic scrt-token -n scrt \
+  --from-literal=token=$(openssl rand -hex 32)
+
+# Apply manifests
+kubectl apply -f deploy/k8s/namespace.yaml
+kubectl apply -f deploy/k8s/secret.yaml
+kubectl apply -f deploy/k8s/statefulset.yaml
+kubectl apply -f deploy/k8s/service.yaml
+kubectl apply -f deploy/k8s/ingress.yaml    # requires cert-manager + nginx ingress
+```
+
+Update `deploy/k8s/statefulset.yaml` with the correct containerd socket path
+for your distribution, and replace `lab.yourdomain.com` in
+`deploy/k8s/ingress.yaml` with your domain.
+
+| Distribution | Socket path |
+|---|---|
+| Standard k8s / EKS / GKE / AKS | `/run/containerd/containerd.sock` |
+| k3s | `/run/k3s/containerd/containerd.sock` |
+| Docker-based node | `/var/run/docker.sock` |
+
+Files: [`deploy/k8s/`](deploy/k8s/)
+
+### Web UI
+
+Navigate to your domain after deployment. Enter the bearer token to connect.
+The dashboard auto-refreshes every 10 seconds and supports stop, backup, and
+destroy actions on running containers.
 
 ---
 

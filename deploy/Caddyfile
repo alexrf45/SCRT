@@ -1,0 +1,6 @@
+# Replace lab.yourdomain.com with your actual domain.
+# Caddy obtains and renews TLS certificates automatically via ACME.
+
+lab.yourdomain.com {
+    reverse_proxy scrt:8080
+}
