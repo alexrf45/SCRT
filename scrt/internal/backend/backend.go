@@ -25,5 +25,7 @@ type Backend interface {
 	List(ctx context.Context) ([]container.Info, error)
 	Pull(ctx context.Context, image string) error
 	ImportBackup(ctx context.Context, p container.ImportParams) error
+	WebExec(ctx context.Context, p container.WebExecParams) (*container.ExecSession, error)
+	ResizeExec(ctx context.Context, p container.ResizeExecParams) error
 	Close() error
 }

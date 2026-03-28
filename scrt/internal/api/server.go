@@ -78,4 +78,8 @@ func (s *Server) registerRoutes() {
 	s.mux.Handle("POST /api/v1/containers/{name}/destroy", auth(s.handleDestroyContainer))
 	s.mux.Handle("POST /api/v1/containers/{name}/backup", auth(s.handleBackupContainer))
 	s.mux.Handle("POST /api/v1/images/pull", auth(s.handlePullImage))
+
+	// WebSocket terminal — auth via ?token= query param (browsers cannot set
+	// custom headers on WebSocket upgrades).
+	s.mux.HandleFunc("GET /ws/exec/{name}", s.handleTerminal)
 }

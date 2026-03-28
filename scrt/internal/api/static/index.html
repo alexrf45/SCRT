@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SCRT</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -48,6 +49,7 @@
         button.danger  { background: #b91c1c; }
         button.warn    { background: #92400e; }
         button.muted   { background: #21262d; border-color: #30363d; color: #c9d1d9; }
+        button.shell   { background: #1f6feb; }
 
         /* Status bar */
         #status-bar {
@@ -83,6 +85,49 @@
         .dim { color: #6e7681; }
 
         #main { display: none; }
+
+        /* Terminal panel */
+        #term-panel {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: 55vh;
+            background: #0d1117;
+            border-top: 1px solid #30363d;
+            flex-direction: column;
+            z-index: 50;
+        }
+        #term-panel.open { display: flex; }
+        #term-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.35rem 1rem;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            flex-shrink: 0;
+        }
+        #term-title { font-size: 0.8rem; color: #58a6ff; }
+        #term-status { font-size: 0.75rem; color: #6e7681; margin-left: 1rem; }
+        #term-close {
+            background: none;
+            border: none;
+            color: #6e7681;
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 0 0.25rem;
+            line-height: 1;
+        }
+        #term-close:hover { color: #c9d1d9; opacity: 1; }
+        #term-body {
+            flex: 1;
+            overflow: hidden;
+            padding: 4px;
+            background: #0d1117;
+        }
+        /* xterm container fills term-body */
+        #term-body .xterm { height: 100%; }
+        #term-body .xterm-viewport { background: #0d1117 !important; }
     </style>
 </head>
 <body>
@@ -101,7 +146,7 @@
         <span id="status-msg">Connected</span>
         <span>
             Refresh: 10s &nbsp;
-            <button class="muted" onclick="loadContainers()">↺ Refresh</button>
+            <button class="muted" onclick="loadContainers()">&#x21BA; Refresh</button>
             &nbsp;
             <button class="muted" onclick="logout()">Disconnect</button>
         </span>
@@ -122,13 +167,35 @@
     </table>
 </div>
 
+<!-- Terminal panel (slides up from the bottom) -->
+<div id="term-panel">
+    <div id="term-header">
+        <div style="display:flex;align-items:center;">
+            <span id="term-title">Shell</span>
+            <span id="term-status">connecting…</span>
+        </div>
+        <button id="term-close" onclick="closeShell()" title="Close terminal">&#x2715;</button>
+    </div>
+    <div id="term-body"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
 <script>
     'use strict';
 
     let token = sessionStorage.getItem('scrt_token') || '';
     let timer = null;
 
+    // Terminal state
+    let term = null;
+    let fitAddon = null;
+    let termWs = null;
+    let termResizeObserver = null;
+
     if (token) showDashboard();
+
+    /* ── Auth ── */
 
     function authenticate() {
         token = document.getElementById('token-input').value.trim();
@@ -154,12 +221,15 @@
 
     function logout() {
         clearInterval(timer);
+        closeShell();
         token = '';
         sessionStorage.removeItem('scrt_token');
         document.getElementById('auth-form').style.display = 'block';
         document.getElementById('main').style.display = 'none';
         document.getElementById('token-input').value = '';
     }
+
+    /* ── API ── */
 
     function apiFetch(method, path, body) {
         const opts = {
@@ -187,6 +257,8 @@
         if (!isErr) setTimeout(() => { el.textContent = 'Connected'; el.className = ''; }, 4000);
     }
 
+    /* ── Container table ── */
+
     function loadContainers() {
         apiFetch('GET', '/api/v1/containers')
             .then(renderTable)
@@ -204,12 +276,16 @@
             const stopBtn = c.State === 'running'
                 ? `<button class="warn" onclick="stopContainer('${esc(c.Name)}')">Stop</button>`
                 : '';
+            const shellBtn = c.State === 'running'
+                ? `<button class="shell" onclick="openShell('${esc(c.Name)}')">Shell</button>`
+                : '';
             return `<tr>
                 <td><strong>${esc(c.Name)}</strong></td>
                 <td class="${stateClass}">${esc(c.State)}</td>
                 <td class="dim">${esc(c.Status)}</td>
                 <td class="dim">${esc(c.Image)}</td>
                 <td><div class="actions">
+                    ${shellBtn}
                     ${stopBtn}
                     <button onclick="backupContainer('${esc(c.Name)}')">Backup</button>
                     <button class="danger" onclick="destroyContainer('${esc(c.Name)}')">Destroy</button>
@@ -236,6 +312,111 @@
             .then(d => setStatus('Backup saved: ' + d.file))
             .catch(e => setStatus('Backup failed: ' + e.message, true));
     }
+
+    /* ── Web shell ── */
+
+    function openShell(name) {
+        // Tear down any existing session first.
+        teardownTerminal();
+
+        document.getElementById('term-title').textContent = 'Shell: ' + name;
+        document.getElementById('term-status').textContent = 'connecting\u2026';
+        document.getElementById('term-panel').classList.add('open');
+
+        const body = document.getElementById('term-body');
+        body.innerHTML = '';
+
+        term = new Terminal({
+            theme: {
+                background:  '#0d1117',
+                foreground:  '#c9d1d9',
+                cursor:      '#58a6ff',
+                black:       '#484f58',
+                red:         '#ff7b72',
+                green:       '#3fb950',
+                yellow:      '#d29922',
+                blue:        '#58a6ff',
+                magenta:     '#bc8cff',
+                cyan:        '#39c5cf',
+                white:       '#b1bac4',
+                brightBlack: '#6e7681',
+            },
+            fontFamily: "'Courier New', Courier, monospace",
+            fontSize: 14,
+            lineHeight: 1.2,
+            cursorBlink: true,
+            scrollback: 5000,
+        });
+
+        fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(body);
+        fitAddon.fit();
+
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const url = proto + '//' + location.host + '/ws/exec/' + encodeURIComponent(name)
+                  + '?token=' + encodeURIComponent(token);
+        termWs = new WebSocket(url);
+        termWs.binaryType = 'arraybuffer';
+
+        termWs.onopen = () => {
+            document.getElementById('term-status').textContent = 'connected';
+            sendResize();
+            term.focus();
+        };
+
+        termWs.onmessage = e => {
+            if (e.data instanceof ArrayBuffer) {
+                term.write(new Uint8Array(e.data));
+            }
+        };
+
+        termWs.onclose = () => {
+            document.getElementById('term-status').textContent = 'disconnected';
+            if (term) term.write('\r\n\x1b[2m[session closed]\x1b[0m\r\n');
+        };
+
+        termWs.onerror = () => {
+            document.getElementById('term-status').textContent = 'error';
+            if (term) term.write('\r\n\x1b[31m[connection error]\x1b[0m\r\n');
+        };
+
+        // Keyboard input → docker stdin
+        term.onData(data => {
+            if (termWs && termWs.readyState === WebSocket.OPEN) {
+                const encoded = new TextEncoder().encode(data);
+                termWs.send(encoded);
+            }
+        });
+
+        // Auto-resize when the panel dimensions change
+        termResizeObserver = new ResizeObserver(() => {
+            if (fitAddon) {
+                fitAddon.fit();
+                sendResize();
+            }
+        });
+        termResizeObserver.observe(body);
+    }
+
+    function sendResize() {
+        if (!termWs || termWs.readyState !== WebSocket.OPEN || !term) return;
+        termWs.send(JSON.stringify({ type: 'resize', rows: term.rows, cols: term.cols }));
+    }
+
+    function closeShell() {
+        document.getElementById('term-panel').classList.remove('open');
+        teardownTerminal();
+    }
+
+    function teardownTerminal() {
+        if (termResizeObserver) { termResizeObserver.disconnect(); termResizeObserver = null; }
+        if (termWs) { termWs.close(); termWs = null; }
+        if (term) { term.dispose(); term = null; }
+        fitAddon = null;
+    }
+
+    /* ── Utilities ── */
 
     function esc(s) {
         if (!s) return '';

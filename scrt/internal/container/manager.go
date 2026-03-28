@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
@@ -16,6 +17,29 @@ import (
 
 	charmlog "github.com/charmbracelet/log"
 )
+
+// ExecSession holds an active TTY exec session into a container.
+// The caller must close Conn when the session is complete.
+type ExecSession struct {
+	ExecID string
+	// Conn accepts stdin writes for the exec process.
+	Conn net.Conn
+	// Reader delivers raw PTY output (stdout+stderr combined when Tty=true).
+	Reader io.Reader
+}
+
+// WebExecParams holds parameters for WebExec. (CS-5)
+type WebExecParams struct {
+	Project string
+	Shell   string
+}
+
+// ResizeExecParams holds parameters for ResizeExec. (CS-5)
+type ResizeExecParams struct {
+	ExecID string
+	Rows   uint
+	Cols   uint
+}
 
 // Info holds displayable container metadata.
 type Info struct {
@@ -233,6 +257,51 @@ func (m *Manager) ImportBackup(ctx context.Context, p ImportParams) error {
 
 	if _, err := io.Copy(io.Discard, resp); err != nil {
 		return fmt.Errorf("import %s: %w", p.File, err)
+	}
+	return nil
+}
+
+// WebExec creates a TTY exec session in a running container using the Docker SDK.
+// The returned ExecSession.Conn must be closed by the caller when done.
+func (m *Manager) WebExec(ctx context.Context, p WebExecParams) (*ExecSession, error) {
+	exists, running := m.containerState(ctx, p.Project)
+	if !exists {
+		return nil, fmt.Errorf("%w: %s", ErrContainerNotFound, p.Project)
+	}
+	if !running {
+		return nil, fmt.Errorf("container %s is not running", p.Project)
+	}
+
+	execResp, err := m.client.ContainerExecCreate(ctx, p.Project, containertypes.ExecOptions{
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: true,
+		Tty:          true,
+		Cmd:          []string{p.Shell},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("exec create %s: %w", p.Project, err)
+	}
+
+	hijack, err := m.client.ContainerExecAttach(ctx, execResp.ID, containertypes.ExecAttachOptions{Tty: true})
+	if err != nil {
+		return nil, fmt.Errorf("exec attach %s: %w", p.Project, err)
+	}
+
+	return &ExecSession{
+		ExecID: execResp.ID,
+		Conn:   hijack.Conn,
+		Reader: hijack.Reader,
+	}, nil
+}
+
+// ResizeExec resizes the TTY of an active exec session.
+func (m *Manager) ResizeExec(ctx context.Context, p ResizeExecParams) error {
+	if err := m.client.ContainerExecResize(ctx, p.ExecID, containertypes.ResizeOptions{
+		Height: p.Rows,
+		Width:  p.Cols,
+	}); err != nil {
+		return fmt.Errorf("resize exec %s: %w", p.ExecID, err)
 	}
 	return nil
 }
