@@ -1,11 +1,16 @@
 package api
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -419,6 +424,484 @@ func TestHandlePullImage(t *testing.T) {
 
 			if w.Code != tt.wantStatus {
 				t.Errorf("status = %d, want %d", w.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
+func TestHandleStartContainer(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		project    string
+		backend    *mockBackend
+		authed     bool
+		wantStatus int
+	}{
+		{
+			name:       "unauthorized",
+			project:    "myproj",
+			backend:    &mockBackend{},
+			authed:     false,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "invalid project name",
+			project:    "bad.name",
+			backend:    &mockBackend{},
+			authed:     true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:    "success",
+			project: "myproj",
+			backend: &mockBackend{
+				startExistingFn: func(_ context.Context, _ string) error { return nil },
+			},
+			authed:     true,
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:    "container not found",
+			project: "myproj",
+			backend: &mockBackend{
+				startExistingFn: func(_ context.Context, _ string) error {
+					return fmt.Errorf("start: %w", container.ErrContainerNotFound)
+				},
+			},
+			authed:     true,
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:    "backend error",
+			project: "myproj",
+			backend: &mockBackend{
+				startExistingFn: func(_ context.Context, _ string) error {
+					return errors.New("daemon unreachable")
+				},
+			},
+			authed:     true,
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			srv := newTestServer(t, tt.backend)
+			w := do(t, srv, http.MethodPost, "/api/v1/containers/"+tt.project+"/start", nil, tt.authed)
+
+			if w.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", w.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
+func TestHandleDownloadFile(t *testing.T) {
+	t.Parallel()
+
+	makeTar := func(name, content string) io.ReadCloser {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		data := []byte(content)
+		_ = tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(data))})
+		_, _ = tw.Write(data)
+		tw.Close()
+		return io.NopCloser(&buf)
+	}
+
+	tests := []struct {
+		name         string
+		project      string
+		queryPath    string
+		backend      *mockBackend
+		authed       bool
+		wantStatus   int
+		wantFilename string
+	}{
+		{
+			name:      "unauthorized",
+			project:   "myproj",
+			queryPath: "/tmp/flag.txt",
+			backend:   &mockBackend{},
+			authed:    false,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:      "invalid project name",
+			project:   "bad.name",
+			queryPath: "/tmp/flag.txt",
+			backend:   &mockBackend{},
+			authed:    true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:      "missing path parameter",
+			project:   "myproj",
+			queryPath: "",
+			backend:   &mockBackend{},
+			authed:    true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:      "path traversal rejected",
+			project:   "myproj",
+			queryPath: "/tmp/../etc/passwd",
+			backend:   &mockBackend{},
+			authed:    true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:      "success",
+			project:   "myproj",
+			queryPath: "/tmp/flag.txt",
+			backend: &mockBackend{
+				copyFromFn: func(_ context.Context, _, _ string) (io.ReadCloser, error) {
+					return makeTar("flag.txt", "ctf_flag"), nil
+				},
+			},
+			authed:       true,
+			wantStatus:   http.StatusOK,
+			wantFilename: "myproj-flag.txt.tar",
+		},
+		{
+			name:      "backend error",
+			project:   "myproj",
+			queryPath: "/tmp/flag.txt",
+			backend: &mockBackend{
+				copyFromFn: func(_ context.Context, _, _ string) (io.ReadCloser, error) {
+					return nil, errors.New("container not running")
+				},
+			},
+			authed:     true,
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			srv := newTestServer(t, tt.backend)
+			url := "/api/v1/containers/" + tt.project + "/files"
+			if tt.queryPath != "" {
+				url += "?path=" + tt.queryPath
+			}
+			w := do(t, srv, http.MethodGet, url, nil, tt.authed)
+
+			if w.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", w.Code, tt.wantStatus)
+			}
+			if tt.wantFilename != "" {
+				cd := w.Header().Get("Content-Disposition")
+				if !strings.Contains(cd, tt.wantFilename) {
+					t.Errorf("Content-Disposition = %q, want filename %q", cd, tt.wantFilename)
+				}
+			}
+		})
+	}
+}
+
+func TestHandleUploadFile(t *testing.T) {
+	t.Parallel()
+
+	makeMultipart := func(filename, content string) (*bytes.Buffer, string) {
+		var buf bytes.Buffer
+		mw := multipart.NewWriter(&buf)
+		fw, _ := mw.CreateFormFile("file", filename)
+		_, _ = io.WriteString(fw, content)
+		mw.Close()
+		return &buf, mw.FormDataContentType()
+	}
+
+	tests := []struct {
+		name       string
+		project    string
+		queryPath  string
+		backend    *mockBackend
+		authed     bool
+		wantStatus int
+	}{
+		{
+			name:      "unauthorized",
+			project:   "myproj",
+			queryPath: "/tmp/",
+			backend:   &mockBackend{},
+			authed:    false,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:      "invalid project name",
+			project:   "bad.name",
+			queryPath: "/tmp/",
+			backend:   &mockBackend{},
+			authed:    true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:      "missing path parameter",
+			project:   "myproj",
+			queryPath: "",
+			backend:   &mockBackend{},
+			authed:    true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:      "path traversal rejected",
+			project:   "myproj",
+			queryPath: "/tmp/../etc/",
+			backend:   &mockBackend{},
+			authed:    true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:      "success",
+			project:   "myproj",
+			queryPath: "/tmp/",
+			backend: &mockBackend{
+				copyToFn: func(_ context.Context, _, _ string, _ io.Reader) error { return nil },
+			},
+			authed:     true,
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:      "backend error",
+			project:   "myproj",
+			queryPath: "/tmp/",
+			backend: &mockBackend{
+				copyToFn: func(_ context.Context, _, _ string, _ io.Reader) error {
+					return errors.New("container stopped")
+				},
+			},
+			authed:     true,
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			srv := newTestServer(t, tt.backend)
+
+			url := "/api/v1/containers/" + tt.project + "/files"
+			if tt.queryPath != "" {
+				url += "?path=" + tt.queryPath
+			}
+
+			body, ct := makeMultipart("payload.sh", "#!/bin/sh\necho hello")
+			req := httptest.NewRequest(http.MethodPost, url, body)
+			if tt.authed {
+				req.Header.Set("Authorization", "Bearer "+testToken)
+			}
+			req.Header.Set("Content-Type", ct)
+			rec := httptest.NewRecorder()
+			srv.mux.ServeHTTP(rec, req)
+
+			if rec.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
+func TestHandleExecBackground(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		project    string
+		body       string
+		backend    *mockBackend
+		authed     bool
+		wantStatus int
+		wantJobID  bool
+	}{
+		{
+			name:       "unauthorized",
+			project:    "myproj",
+			body:       `{"cmd":"id"}`,
+			backend:    &mockBackend{},
+			authed:     false,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "invalid project name",
+			project:    "bad.name",
+			body:       `{"cmd":"id"}`,
+			backend:    &mockBackend{},
+			authed:     true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "missing cmd",
+			project:    "myproj",
+			body:       `{"cmd":""}`,
+			backend:    &mockBackend{},
+			authed:     true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "malformed json",
+			project:    "myproj",
+			body:       `not-json`,
+			backend:    &mockBackend{},
+			authed:     true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:    "success — job accepted immediately",
+			project: "myproj",
+			body:    `{"cmd":"id"}`,
+			backend: &mockBackend{
+				// ExecBackground blocks — use a channel to prevent the goroutine
+				// from racing against the test assertion.
+				execBackgroundFn: func(ctx context.Context, _ container.BackgroundExecParams) ([]byte, int, error) {
+					<-ctx.Done()
+					return nil, -1, ctx.Err()
+				},
+			},
+			authed:     true,
+			wantStatus: http.StatusAccepted,
+			wantJobID:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			srv := newTestServer(t, tt.backend)
+			w := do(t, srv, http.MethodPost, "/api/v1/containers/"+tt.project+"/exec", strings.NewReader(tt.body), tt.authed)
+
+			if w.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", w.Code, tt.wantStatus)
+			}
+			if tt.wantJobID {
+				var resp map[string]string
+				if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+					t.Fatalf("decode response: %v", err)
+				}
+				if resp["id"] == "" {
+					t.Error("expected non-empty job id in response")
+				}
+			}
+		})
+	}
+}
+
+func TestHandleListJobs(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t, &mockBackend{})
+	w := do(t, srv, http.MethodGet, "/api/v1/jobs", nil, true)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", w.Code)
+	}
+	// Empty store returns a JSON array, not null
+	body := strings.TrimSpace(w.Body.String())
+	if body == "null" {
+		t.Error("expected JSON array, got null")
+	}
+}
+
+func TestHandleGetJob(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		id         string
+		authed     bool
+		wantStatus int
+	}{
+		{
+			name:       "unauthorized",
+			id:         "nonexistent",
+			authed:     false,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "not found",
+			id:         "nonexistent",
+			authed:     true,
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			srv := newTestServer(t, &mockBackend{})
+			w := do(t, srv, http.MethodGet, "/api/v1/jobs/"+tt.id, nil, tt.authed)
+			if w.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", w.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
+func TestHandleDeleteJob(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		id         string
+		authed     bool
+		wantStatus int
+	}{
+		{
+			name:       "unauthorized",
+			id:         "nonexistent",
+			authed:     false,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "not found",
+			id:         "nonexistent",
+			authed:     true,
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			srv := newTestServer(t, &mockBackend{})
+			w := do(t, srv, http.MethodDelete, "/api/v1/jobs/"+tt.id, nil, tt.authed)
+			if w.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", w.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
+func TestValidateTransferPath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		path    string
+		wantErr bool
+	}{
+		{"/tmp/flag.txt", false},
+		{"/tmp/", false},
+		{"/", false},
+		{"relative/path", false},
+		{"", true},
+		{"/tmp/../etc/passwd", true},
+		{"../etc/passwd", true},
+		{"..", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			t.Parallel()
+			err := validateTransferPath(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateTransferPath(%q) err = %v, wantErr = %v", tt.path, err, tt.wantErr)
 			}
 		})
 	}

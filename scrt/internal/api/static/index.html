@@ -6,24 +6,102 @@
     <title>SCRT</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <style>
+        /* ── Theme variables ─────────────────────────────────────────────── */
+        :root {
+            --bg:              #0d1117;
+            --surface:         #161b22;
+            --border:          #30363d;
+            --fg:              #c9d1d9;
+            --muted:           #6e7681;
+            --accent:          #58a6ff;
+            --green:           #3fb950;
+            --red:             #f85149;
+            --yellow:          #d29922;
+            --btn-primary:     #238636;
+            --btn-danger:      #b91c1c;
+            --btn-warn:        #92400e;
+            --btn-muted:       #21262d;
+            --btn-muted-fg:    #c9d1d9;
+            --btn-muted-border:#30363d;
+            --btn-shell:       #1f6feb;
+            --btn-start:       #1a7f37;
+        }
+        [data-theme="light"] {
+            --bg:              #ffffff;
+            --surface:         #f6f8fa;
+            --border:          #d0d7de;
+            --fg:              #24292f;
+            --muted:           #57606a;
+            --accent:          #0969da;
+            --green:           #1a7f37;
+            --red:             #cf222e;
+            --yellow:          #9a6700;
+            --btn-primary:     #2da44e;
+            --btn-danger:      #cf222e;
+            --btn-warn:        #9a6700;
+            --btn-muted:       #f6f8fa;
+            --btn-muted-fg:    #24292f;
+            --btn-muted-border:#d0d7de;
+            --btn-shell:       #0969da;
+            --btn-start:       #1a7f37;
+        }
+        [data-theme="dracula"] {
+            --bg:              #282a36;
+            --surface:         #44475a;
+            --border:          #6272a4;
+            --fg:              #f8f8f2;
+            --muted:           #6272a4;
+            --accent:          #bd93f9;
+            --green:           #50fa7b;
+            --red:             #ff5555;
+            --yellow:          #f1fa8c;
+            --btn-primary:     #50fa7b;
+            --btn-danger:      #ff5555;
+            --btn-warn:        #ffb86c;
+            --btn-muted:       #44475a;
+            --btn-muted-fg:    #f8f8f2;
+            --btn-muted-border:#6272a4;
+            --btn-shell:       #8be9fd;
+            --btn-start:       #50fa7b;
+        }
+        [data-theme="nord"] {
+            --bg:              #2e3440;
+            --surface:         #3b4252;
+            --border:          #4c566a;
+            --fg:              #eceff4;
+            --muted:           #4c566a;
+            --accent:          #88c0d0;
+            --green:           #a3be8c;
+            --red:             #bf616a;
+            --yellow:          #ebcb8b;
+            --btn-primary:     #a3be8c;
+            --btn-danger:      #bf616a;
+            --btn-warn:        #d08770;
+            --btn-muted:       #3b4252;
+            --btn-muted-fg:    #eceff4;
+            --btn-muted-border:#4c566a;
+            --btn-shell:       #88c0d0;
+            --btn-start:       #a3be8c;
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            background: #0d1117;
-            color: #c9d1d9;
+            background: var(--bg);
+            color: var(--fg);
             font-family: 'Courier New', monospace;
             padding: 2rem;
             min-height: 100vh;
         }
-        h1 { color: #58a6ff; font-size: 1.4rem; margin-bottom: 0.2rem; }
-        .subtitle { color: #6e7681; font-size: 0.8rem; margin-bottom: 2rem; }
+        h1 { color: var(--accent); font-size: 1.4rem; margin-bottom: 0.2rem; }
+        .subtitle { color: var(--muted); font-size: 0.8rem; margin-bottom: 2rem; }
 
         /* Auth */
         #auth-form { max-width: 380px; }
         #auth-form input {
             width: 100%;
-            background: #161b22;
-            border: 1px solid #30363d;
-            color: #c9d1d9;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--fg);
             padding: 0.5rem 0.75rem;
             font-family: inherit;
             font-size: 0.9rem;
@@ -31,12 +109,12 @@
             margin-bottom: 0.75rem;
             outline: none;
         }
-        #auth-form input:focus { border-color: #58a6ff; }
-        #auth-error { color: #f85149; font-size: 0.8rem; margin-top: 0.4rem; min-height: 1.1rem; }
+        #auth-form input:focus { border-color: var(--accent); }
+        #auth-error { color: var(--red); font-size: 0.8rem; margin-top: 0.4rem; min-height: 1.1rem; }
 
         /* Buttons */
         button {
-            background: #238636;
+            background: var(--btn-primary);
             border: 1px solid transparent;
             color: #fff;
             padding: 0.35rem 0.85rem;
@@ -46,10 +124,24 @@
             font-size: 0.8rem;
         }
         button:hover { opacity: 0.85; }
-        button.danger  { background: #b91c1c; }
-        button.warn    { background: #92400e; }
-        button.muted   { background: #21262d; border-color: #30363d; color: #c9d1d9; }
-        button.shell   { background: #1f6feb; }
+        button.danger  { background: var(--btn-danger); }
+        button.warn    { background: var(--btn-warn); }
+        button.muted   { background: var(--btn-muted); border-color: var(--btn-muted-border); color: var(--btn-muted-fg); }
+        button.shell   { background: var(--btn-shell); }
+        button.start   { background: var(--btn-start); }
+
+        /* Theme selector */
+        select.theme-select {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--fg);
+            padding: 0.2rem 0.4rem;
+            font-family: inherit;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            outline: none;
+        }
 
         /* Status bar */
         #status-bar {
@@ -58,31 +150,31 @@
             align-items: center;
             margin-bottom: 1.25rem;
             font-size: 0.78rem;
-            color: #6e7681;
+            color: var(--muted);
         }
-        #status-msg { color: #3fb950; min-width: 12rem; }
-        #status-msg.err { color: #f85149; }
+        #status-msg { color: var(--green); min-width: 12rem; }
+        #status-msg.err { color: var(--red); }
 
         /* Table */
         table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         thead th {
             text-align: left;
             padding: 0.4rem 0.75rem;
-            border-bottom: 1px solid #21262d;
-            color: #6e7681;
+            border-bottom: 1px solid var(--surface);
+            color: var(--muted);
             font-weight: normal;
             text-transform: uppercase;
             font-size: 0.7rem;
             letter-spacing: 0.06em;
         }
-        tbody tr { border-bottom: 1px solid #161b22; }
-        tbody tr:hover { background: #161b22; }
+        tbody tr { border-bottom: 1px solid var(--surface); }
+        tbody tr:hover { background: var(--surface); }
         td { padding: 0.55rem 0.75rem; vertical-align: middle; }
-        .running { color: #3fb950; }
-        .exited  { color: #f85149; }
-        .other   { color: #d29922; }
+        .running { color: var(--green); }
+        .exited  { color: var(--red); }
+        .other   { color: var(--yellow); }
         .actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
-        .dim { color: #6e7681; }
+        .dim { color: var(--muted); }
 
         #main { display: none; }
 
@@ -92,8 +184,8 @@
             position: fixed;
             bottom: 0; left: 0; right: 0;
             height: 55vh;
-            background: #0d1117;
-            border-top: 1px solid #30363d;
+            background: var(--bg);
+            border-top: 1px solid var(--border);
             flex-direction: column;
             z-index: 50;
         }
@@ -103,31 +195,225 @@
             justify-content: space-between;
             align-items: center;
             padding: 0.35rem 1rem;
-            background: #161b22;
-            border-bottom: 1px solid #30363d;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
             flex-shrink: 0;
         }
-        #term-title { font-size: 0.8rem; color: #58a6ff; }
-        #term-status { font-size: 0.75rem; color: #6e7681; margin-left: 1rem; }
+        #term-title { font-size: 0.8rem; color: var(--accent); }
+        #term-status { font-size: 0.75rem; color: var(--muted); margin-left: 1rem; }
         #term-close {
             background: none;
             border: none;
-            color: #6e7681;
+            color: var(--muted);
             font-size: 1.1rem;
             cursor: pointer;
             padding: 0 0.25rem;
             line-height: 1;
         }
-        #term-close:hover { color: #c9d1d9; opacity: 1; }
+        #term-close:hover { color: var(--fg); opacity: 1; }
         #term-body {
             flex: 1;
             overflow: hidden;
             padding: 4px;
-            background: #0d1117;
+            background: var(--bg);
         }
-        /* xterm container fills term-body */
         #term-body .xterm { height: 100%; }
-        #term-body .xterm-viewport { background: #0d1117 !important; }
+        #term-body .xterm-viewport { background: var(--bg) !important; }
+
+        /* Files modal */
+        #files-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        #files-modal.open { display: flex; }
+        #files-dialog {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            width: 520px;
+            max-width: 94vw;
+        }
+        #files-dialog h3 {
+            color: var(--accent);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            font-weight: normal;
+        }
+        .files-section { margin-bottom: 1.25rem; }
+        .files-section-label {
+            font-size: 0.7rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 0.5rem;
+        }
+        .files-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+        .files-row input[type="text"] {
+            flex: 1;
+            min-width: 120px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--fg);
+            padding: 0.4rem 0.6rem;
+            font-family: inherit;
+            font-size: 0.82rem;
+            border-radius: 4px;
+            outline: none;
+        }
+        .files-row input[type="text"]:focus { border-color: var(--accent); }
+        .files-row input[type="file"] {
+            flex: 1;
+            min-width: 120px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--fg);
+            padding: 0.3rem 0.5rem;
+            font-family: inherit;
+            font-size: 0.78rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #files-status {
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+            min-height: 1.1rem;
+            color: var(--green);
+        }
+        #files-status.err { color: var(--red); }
+        .files-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        #files-close {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 1.1rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+        }
+        #files-close:hover { color: var(--fg); opacity: 1; }
+
+        /* Exec modal — reuses files-dialog shape */
+        #exec-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        #exec-modal.open { display: flex; }
+        #exec-dialog {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            width: 560px;
+            max-width: 94vw;
+        }
+        #exec-dialog h3 {
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: normal;
+        }
+        #exec-cmd {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--fg);
+            padding: 0.4rem 0.6rem;
+            font-family: inherit;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            outline: none;
+            margin-top: 0.5rem;
+        }
+        #exec-cmd:focus { border-color: var(--accent); }
+        #exec-status { font-size: 0.8rem; min-height: 1.1rem; color: var(--green); margin-top: 0.75rem; }
+        #exec-status.err { color: var(--red); }
+
+        /* Jobs panel */
+        #jobs-section { margin-top: 2rem; }
+        .jobs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+        }
+        .jobs-header-label {
+            font-size: 0.7rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .job-running { color: var(--yellow); }
+        .job-done    { color: var(--green); }
+        .job-error   { color: var(--red); }
+        .job-cmd     { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Output overlay */
+        #output-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 110;
+            align-items: center;
+            justify-content: center;
+        }
+        #output-overlay.open { display: flex; }
+        #output-dialog {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            width: 720px;
+            max-width: 96vw;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #output-dialog h3 {
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: normal;
+            flex-shrink: 0;
+        }
+        #output-pre {
+            flex: 1;
+            overflow: auto;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin-top: 0.75rem;
+        }
+        .output-hdr { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        #output-close {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        #output-close:hover { color: var(--fg); opacity: 1; }
     </style>
 </head>
 <body>
@@ -144,9 +430,16 @@
 <div id="main">
     <div id="status-bar">
         <span id="status-msg">Connected</span>
-        <span>
+        <span style="display:flex;align-items:center;gap:0.5rem;">
             Refresh: 10s &nbsp;
             <button class="muted" onclick="loadContainers()">&#x21BA; Refresh</button>
+            &nbsp;
+            <select id="theme-select" class="theme-select" onchange="applyTheme(this.value)" title="Theme">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+                <option value="dracula">Dracula</option>
+                <option value="nord">Nord</option>
+            </select>
             &nbsp;
             <button class="muted" onclick="logout()">Disconnect</button>
         </span>
@@ -154,7 +447,8 @@
     <table>
         <thead>
             <tr>
-                <th>Name</th>
+                <th>Project</th>
+                <th>IP</th>
                 <th>State</th>
                 <th>Status</th>
                 <th>Image</th>
@@ -162,9 +456,12 @@
             </tr>
         </thead>
         <tbody id="tbody">
-            <tr><td colspan="5" class="dim" style="text-align:center;padding:1.5rem;">Loading...</td></tr>
+            <tr><td colspan="6" class="dim" style="text-align:center;padding:1.5rem;">Loading...</td></tr>
         </tbody>
     </table>
+
+    <!-- Background jobs panel -->
+    <div id="jobs-section" style="display:none;"><!-- filled by JS --></div>
 </div>
 
 <!-- Terminal panel (slides up from the bottom) -->
@@ -179,6 +476,62 @@
     <div id="term-body"></div>
 </div>
 
+<!-- Exec modal -->
+<div id="exec-modal">
+    <div id="exec-dialog">
+        <div class="files-header">
+            <h3>Run Command &mdash; <span id="exec-container-name"></span></h3>
+            <button id="exec-close-btn" onclick="closeExec()" title="Close">&#x2715;</button>
+        </div>
+        <div class="files-section-label">Command</div>
+        <input type="text" id="exec-cmd" placeholder="python3 /tmp/exploit.py --target 10.0.0.1" />
+        <div style="margin-top:0.75rem; display:flex; gap:0.5rem;">
+            <button onclick="runExec()">Run in background</button>
+        </div>
+        <div id="exec-status"></div>
+    </div>
+</div>
+
+<!-- Output overlay -->
+<div id="output-overlay">
+    <div id="output-dialog">
+        <div class="output-hdr">
+            <h3>Output &mdash; <span id="output-job-label"></span></h3>
+            <button id="output-close" onclick="closeOutput()" title="Close">&#x2715;</button>
+        </div>
+        <pre id="output-pre"></pre>
+    </div>
+</div>
+
+<!-- File transfer modal -->
+<div id="files-modal">
+    <div id="files-dialog">
+        <div class="files-header">
+            <h3>Files &mdash; <span id="files-container-name"></span></h3>
+            <button id="files-close" onclick="closeFiles()" title="Close">&#x2715;</button>
+        </div>
+
+        <div class="files-section">
+            <div class="files-section-label">Download from container</div>
+            <div class="files-row">
+                <input type="text" id="download-path" placeholder="/path/to/file or /dir/" />
+                <button onclick="downloadFile()">Download</button>
+            </div>
+        </div>
+
+        <div class="files-section">
+            <div class="files-section-label">Upload to container</div>
+            <div class="files-row">
+                <input type="file" id="upload-file" />
+                <input type="text" id="upload-path" placeholder="/target/dir/" style="max-width:160px;" />
+                <button onclick="uploadFile()">Upload</button>
+            </div>
+        </div>
+
+        <div id="files-status"></div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
 <script>
@@ -186,12 +539,97 @@
 
     let token = sessionStorage.getItem('scrt_token') || '';
     let timer = null;
+    let jobTimer = null;
+    let execContainer = '';
+    let currentContainer = '';
 
     // Terminal state
     let term = null;
     let fitAddon = null;
     let termWs = null;
     let termResizeObserver = null;
+
+    // ── Themes ────────────────────────────────────────────────────────────
+
+    const TERM_THEMES = {
+        dark: {
+            background:  '#0d1117',
+            foreground:  '#c9d1d9',
+            cursor:      '#58a6ff',
+            black:       '#484f58',
+            red:         '#ff7b72',
+            green:       '#3fb950',
+            yellow:      '#d29922',
+            blue:        '#58a6ff',
+            magenta:     '#bc8cff',
+            cyan:        '#39c5cf',
+            white:       '#b1bac4',
+            brightBlack: '#6e7681',
+        },
+        light: {
+            background:  '#ffffff',
+            foreground:  '#24292f',
+            cursor:      '#0969da',
+            black:       '#24292f',
+            red:         '#cf222e',
+            green:       '#116329',
+            yellow:      '#4d2d00',
+            blue:        '#0969da',
+            magenta:     '#8250df',
+            cyan:        '#1b7c83',
+            white:       '#6e7781',
+            brightBlack: '#57606a',
+        },
+        dracula: {
+            background:  '#282a36',
+            foreground:  '#f8f8f2',
+            cursor:      '#f8f8f2',
+            black:       '#21222c',
+            red:         '#ff5555',
+            green:       '#50fa7b',
+            yellow:      '#f1fa8c',
+            blue:        '#bd93f9',
+            magenta:     '#ff79c6',
+            cyan:        '#8be9fd',
+            white:       '#f8f8f2',
+            brightBlack: '#6272a4',
+        },
+        nord: {
+            background:  '#2e3440',
+            foreground:  '#eceff4',
+            cursor:      '#88c0d0',
+            black:       '#3b4252',
+            red:         '#bf616a',
+            green:       '#a3be8c',
+            yellow:      '#ebcb8b',
+            blue:        '#81a1c1',
+            magenta:     '#b48ead',
+            cyan:        '#88c0d0',
+            white:       '#e5e9f0',
+            brightBlack: '#4c566a',
+        },
+    };
+
+    function currentTheme() {
+        return document.documentElement.dataset.theme || 'dark';
+    }
+
+    function applyTheme(name) {
+        document.documentElement.dataset.theme = name;
+        localStorage.setItem('scrt_theme', name);
+        const sel = document.getElementById('theme-select');
+        if (sel) sel.value = name;
+        // Update open terminal theme in-place
+        if (term) {
+            term.options.theme = TERM_THEMES[name] || TERM_THEMES.dark;
+        }
+    }
+
+    // Apply saved theme on load (before auth check so background colours are correct)
+    (function initTheme() {
+        const saved = localStorage.getItem('scrt_theme') || 'dark';
+        document.documentElement.dataset.theme = saved;
+    })();
 
     if (token) showDashboard();
 
@@ -215,13 +653,20 @@
     function showDashboard() {
         document.getElementById('auth-form').style.display = 'none';
         document.getElementById('main').style.display = 'block';
+        const sel = document.getElementById('theme-select');
+        if (sel) sel.value = currentTheme();
         loadContainers();
+        loadJobs();
         timer = setInterval(loadContainers, 10000);
     }
 
     function logout() {
         clearInterval(timer);
+        clearTimeout(jobTimer);
         closeShell();
+        closeFiles();
+        closeExec();
+        closeOutput();
         token = '';
         sessionStorage.removeItem('scrt_token');
         document.getElementById('auth-form').style.display = 'block';
@@ -268,30 +713,47 @@
     function renderTable(containers) {
         const tbody = document.getElementById('tbody');
         if (!containers || containers.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="dim" style="text-align:center;padding:1.5rem;">No SCRT containers found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="dim" style="text-align:center;padding:1.5rem;">No SCRT containers found</td></tr>';
             return;
         }
         tbody.innerHTML = containers.map(c => {
             const stateClass = c.State === 'running' ? 'running' : c.State === 'exited' ? 'exited' : 'other';
+            const startBtn = c.State !== 'running'
+                ? `<button class="start" onclick="startContainer('${esc(c.Name)}')">Start</button>`
+                : '';
             const stopBtn = c.State === 'running'
                 ? `<button class="warn" onclick="stopContainer('${esc(c.Name)}')">Stop</button>`
                 : '';
             const shellBtn = c.State === 'running'
                 ? `<button class="shell" onclick="openShell('${esc(c.Name)}')">Shell</button>`
                 : '';
+            const runBtn = c.State === 'running'
+                ? `<button class="muted" onclick="openExec('${esc(c.Name)}')">Run</button>`
+                : '';
+            const ip = c.IP ? `<span class="dim">${esc(c.IP)}</span>` : `<span class="dim">&mdash;</span>`;
             return `<tr>
-                <td><strong>${esc(c.Name)}</strong></td>
+                <td><strong>${esc(c.Project || c.Name)}</strong></td>
+                <td>${ip}</td>
                 <td class="${stateClass}">${esc(c.State)}</td>
                 <td class="dim">${esc(c.Status)}</td>
                 <td class="dim">${esc(c.Image)}</td>
                 <td><div class="actions">
                     ${shellBtn}
+                    ${runBtn}
+                    ${startBtn}
                     ${stopBtn}
+                    <button class="muted" onclick="openFiles('${esc(c.Name)}')">Files</button>
                     <button onclick="backupContainer('${esc(c.Name)}')">Backup</button>
                     <button class="danger" onclick="destroyContainer('${esc(c.Name)}')">Destroy</button>
                 </div></td>
             </tr>`;
         }).join('');
+    }
+
+    function startContainer(name) {
+        apiFetch('POST', '/api/v1/containers/' + name + '/start')
+            .then(() => { setStatus('Started ' + name); loadContainers(); })
+            .catch(e => setStatus('Start failed: ' + e.message, true));
     }
 
     function stopContainer(name) {
@@ -316,7 +778,6 @@
     /* ── Web shell ── */
 
     function openShell(name) {
-        // Tear down any existing session first.
         teardownTerminal();
 
         document.getElementById('term-title').textContent = 'Shell: ' + name;
@@ -327,20 +788,7 @@
         body.innerHTML = '';
 
         term = new Terminal({
-            theme: {
-                background:  '#0d1117',
-                foreground:  '#c9d1d9',
-                cursor:      '#58a6ff',
-                black:       '#484f58',
-                red:         '#ff7b72',
-                green:       '#3fb950',
-                yellow:      '#d29922',
-                blue:        '#58a6ff',
-                magenta:     '#bc8cff',
-                cyan:        '#39c5cf',
-                white:       '#b1bac4',
-                brightBlack: '#6e7681',
-            },
+            theme: TERM_THEMES[currentTheme()] || TERM_THEMES.dark,
             fontFamily: "'Courier New', Courier, monospace",
             fontSize: 14,
             lineHeight: 1.2,
@@ -381,7 +829,6 @@
             if (term) term.write('\r\n\x1b[31m[connection error]\x1b[0m\r\n');
         };
 
-        // Keyboard input → docker stdin
         term.onData(data => {
             if (termWs && termWs.readyState === WebSocket.OPEN) {
                 const encoded = new TextEncoder().encode(data);
@@ -389,7 +836,6 @@
             }
         });
 
-        // Auto-resize when the panel dimensions change
         termResizeObserver = new ResizeObserver(() => {
             if (fitAddon) {
                 fitAddon.fit();
@@ -415,6 +861,258 @@
         if (term) { term.dispose(); term = null; }
         fitAddon = null;
     }
+
+    /* ── Background exec ── */
+
+    function openExec(name) {
+        execContainer = name;
+        document.getElementById('exec-container-name').textContent = name;
+        document.getElementById('exec-cmd').value = '';
+        document.getElementById('exec-status').textContent = '';
+        document.getElementById('exec-status').className = '';
+        document.getElementById('exec-modal').classList.add('open');
+        setTimeout(() => document.getElementById('exec-cmd').focus(), 50);
+    }
+
+    function closeExec() {
+        document.getElementById('exec-modal').classList.remove('open');
+        execContainer = '';
+    }
+
+    function runExec() {
+        const cmd = document.getElementById('exec-cmd').value.trim();
+        if (!cmd) { setExecStatus('Enter a command.', true); return; }
+
+        setExecStatus('Submitting\u2026', false);
+        apiFetch('POST', '/api/v1/containers/' + encodeURIComponent(execContainer) + '/exec', { cmd })
+            .then(d => {
+                setExecStatus('Job started: ' + d.id, false);
+                loadJobs();
+                // Close modal after a moment so user can see the job ID
+                setTimeout(closeExec, 1200);
+            })
+            .catch(e => setExecStatus(e.message, true));
+    }
+
+    function setExecStatus(msg, isErr) {
+        const el = document.getElementById('exec-status');
+        el.textContent = msg;
+        el.className = isErr ? 'err' : '';
+    }
+
+    document.getElementById('exec-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeExec();
+    });
+
+    document.getElementById('exec-cmd').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') runExec();
+    });
+
+    /* ── Jobs ── */
+
+    function loadJobs() {
+        apiFetch('GET', '/api/v1/jobs')
+            .then(renderJobs)
+            .catch(() => {}); // silently ignore — jobs panel is non-critical
+    }
+
+    function renderJobs(jobs) {
+        const section = document.getElementById('jobs-section');
+        if (!jobs || jobs.length === 0) {
+            section.style.display = 'none';
+            scheduleJobRefresh(jobs);
+            return;
+        }
+        section.style.display = 'block';
+
+        const rows = jobs.map(j => {
+            const statusClass = j.status === 'running' ? 'job-running' : j.status === 'done' ? 'job-done' : 'job-error';
+            const statusLabel = j.status === 'running'
+                ? 'running\u2026'
+                : j.status === 'done' ? 'done (' + j.exit_code + ')' : 'error (' + j.exit_code + ')';
+            const killBtn = j.status === 'running'
+                ? `<button class="warn" onclick="killJob('${esc(j.id)}')">Kill</button>`
+                : '';
+            const clearBtn = j.status !== 'running'
+                ? `<button class="muted" onclick="clearJob('${esc(j.id)}')">Clear</button>`
+                : '';
+            const cmdShort = j.cmd.length > 45 ? j.cmd.slice(0, 42) + '\u2026' : j.cmd;
+            return `<tr>
+                <td class="dim" style="font-size:0.75rem;">${esc(j.id)}</td>
+                <td><strong>${esc(j.container)}</strong></td>
+                <td class="job-cmd dim" title="${esc(j.cmd)}">${esc(cmdShort)}</td>
+                <td class="${statusClass}">${statusLabel}</td>
+                <td class="dim" style="font-size:0.75rem;">${relTime(j.started_at)}</td>
+                <td><div class="actions">
+                    <button class="muted" onclick="openOutput('${esc(j.id)}')">Output</button>
+                    ${killBtn}${clearBtn}
+                </div></td>
+            </tr>`;
+        }).join('');
+
+        section.innerHTML = `
+            <div class="jobs-header">
+                <span class="jobs-header-label">Background Jobs</span>
+                <button class="muted" onclick="clearDoneJobs()">Clear Done</button>
+            </div>
+            <table>
+                <thead><tr>
+                    <th>ID</th><th>Project</th><th>Command</th>
+                    <th>Status</th><th>Started</th><th>Actions</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+
+        scheduleJobRefresh(jobs);
+    }
+
+    function scheduleJobRefresh(jobs) {
+        clearTimeout(jobTimer);
+        if (!jobs || jobs.length === 0) return;
+        const hasRunning = jobs.some(j => j.status === 'running');
+        jobTimer = setTimeout(loadJobs, hasRunning ? 3000 : 30000);
+    }
+
+    function killJob(id) {
+        apiFetch('DELETE', '/api/v1/jobs/' + id)
+            .then(loadJobs)
+            .catch(e => setStatus('Kill failed: ' + e.message, true));
+    }
+
+    function clearJob(id) {
+        apiFetch('DELETE', '/api/v1/jobs/' + id)
+            .then(loadJobs)
+            .catch(e => setStatus('Clear failed: ' + e.message, true));
+    }
+
+    function clearDoneJobs() {
+        apiFetch('GET', '/api/v1/jobs')
+            .then(jobs => {
+                if (!jobs) return;
+                const done = jobs.filter(j => j.status !== 'running');
+                return Promise.all(done.map(j => apiFetch('DELETE', '/api/v1/jobs/' + j.id)));
+            })
+            .then(loadJobs)
+            .catch(e => setStatus('Clear failed: ' + e.message, true));
+    }
+
+    /* ── Output overlay ── */
+
+    function openOutput(id) {
+        apiFetch('GET', '/api/v1/jobs/' + id)
+            .then(job => {
+                document.getElementById('output-job-label').textContent = id + ' (' + job.container + ')';
+                document.getElementById('output-pre').textContent = job.output || '(no output)';
+                document.getElementById('output-overlay').classList.add('open');
+            })
+            .catch(e => setStatus('Output failed: ' + e.message, true));
+    }
+
+    function closeOutput() {
+        document.getElementById('output-overlay').classList.remove('open');
+    }
+
+    document.getElementById('output-overlay').addEventListener('click', function(e) {
+        if (e.target === this) closeOutput();
+    });
+
+    /* ── Utilities (shared) ── */
+
+    function relTime(isoStr) {
+        const s = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
+        if (s < 60)   return s + 's ago';
+        if (s < 3600) return Math.floor(s / 60) + 'm ago';
+        return Math.floor(s / 3600) + 'h ago';
+    }
+
+    /* ── File transfer ── */
+
+    function openFiles(name) {
+        currentContainer = name;
+        document.getElementById('files-container-name').textContent = name;
+        document.getElementById('download-path').value = '';
+        document.getElementById('upload-path').value = '/tmp/';
+        document.getElementById('upload-file').value = '';
+        setFilesStatus('', false);
+        document.getElementById('files-modal').classList.add('open');
+    }
+
+    function closeFiles() {
+        document.getElementById('files-modal').classList.remove('open');
+        currentContainer = '';
+    }
+
+    function setFilesStatus(msg, isErr) {
+        const el = document.getElementById('files-status');
+        el.textContent = msg;
+        el.className = isErr ? 'err' : '';
+    }
+
+    function downloadFile() {
+        const srcPath = document.getElementById('download-path').value.trim();
+        if (!srcPath) { setFilesStatus('Enter a path to download.', true); return; }
+
+        const url = '/api/v1/containers/' + encodeURIComponent(currentContainer)
+                  + '/files?path=' + encodeURIComponent(srcPath);
+
+        setFilesStatus('Downloading…', false);
+        fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+            .then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(JSON.parse(t).error || r.statusText); });
+                // Extract filename from Content-Disposition, fallback to generated name
+                const cd = r.headers.get('Content-Disposition') || '';
+                const match = cd.match(/filename="([^"]+)"/);
+                const filename = match ? match[1] : currentContainer + '-files.tar';
+                return r.blob().then(blob => ({ blob, filename }));
+            })
+            .then(({ blob, filename }) => {
+                const objUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = objUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(objUrl);
+                setFilesStatus('Downloaded: ' + filename, false);
+            })
+            .catch(e => setFilesStatus('Download failed: ' + e.message, true));
+    }
+
+    function uploadFile() {
+        const fileInput = document.getElementById('upload-file');
+        const dstPath   = document.getElementById('upload-path').value.trim();
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            setFilesStatus('Select a file to upload.', true);
+            return;
+        }
+        if (!dstPath) { setFilesStatus('Enter a destination path.', true); return; }
+
+        const url = '/api/v1/containers/' + encodeURIComponent(currentContainer)
+                  + '/files?path=' + encodeURIComponent(dstPath);
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        setFilesStatus('Uploading…', false);
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: formData,
+        })
+            .then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(JSON.parse(t).error || r.statusText); });
+                setFilesStatus('Uploaded: ' + fileInput.files[0].name + ' → ' + dstPath, false);
+                fileInput.value = '';
+            })
+            .catch(e => setFilesStatus('Upload failed: ' + e.message, true));
+    }
+
+    // Close files modal on backdrop click
+    document.getElementById('files-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeFiles();
+    });
 
     /* ── Utilities ── */
 

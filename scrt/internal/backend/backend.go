@@ -10,6 +10,7 @@ package backend
 
 import (
 	"context"
+	"io"
 
 	"github.com/alexrf45/scrt/internal/container"
 )
@@ -20,6 +21,9 @@ import (
 type Backend interface {
 	Start(ctx context.Context, p container.RunParams) error
 	Enter(ctx context.Context, project, shell string) error
+	// StartExisting restarts a stopped container (docker start).
+	// It is a no-op if the container is already running.
+	StartExisting(ctx context.Context, project string) error
 	Stop(ctx context.Context, project string) error
 	Destroy(ctx context.Context, project string) error
 	List(ctx context.Context) ([]container.Info, error)
@@ -27,5 +31,14 @@ type Backend interface {
 	ImportBackup(ctx context.Context, p container.ImportParams) error
 	WebExec(ctx context.Context, p container.WebExecParams) (*container.ExecSession, error)
 	ResizeExec(ctx context.Context, p container.ResizeExecParams) error
+	// CopyFrom copies a file or directory from the container as a tar stream.
+	// The caller must close the returned ReadCloser.
+	CopyFrom(ctx context.Context, project, srcPath string) (io.ReadCloser, error)
+	// CopyTo copies a tar-encoded stream into the container at dstPath.
+	CopyTo(ctx context.Context, project, dstPath string, content io.Reader) error
+	// ExecBackground runs a non-interactive command in the container and returns
+	// combined stdout+stderr, exit code, and any exec error. Blocks until exit or
+	// ctx cancellation. Output is capped at 1 MB.
+	ExecBackground(ctx context.Context, p container.BackgroundExecParams) ([]byte, int, error)
 	Close() error
 }

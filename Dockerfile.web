@@ -1,0 +1,216 @@
+# Dockerfile.web — Web application testing & bug bounty environment
+#
+# Strategy: multi-stage build reduces apt surface to ~10 packages.
+# All Go/static tools are fetched in an alpine "downloader" stage and
+# copied in — no apt required for httpx, subfinder, nuclei, ffuf, etc.
+# Python tools (sqlmap, mitmproxy) are installed via pip, not apt, to
+# get current versions rather than distro-packaged ones.
+#
+# Build:  docker build -f Dockerfile.web -t scrt/web:latest .
+# Run:    docker run --rm -it scrt/web:latest
+
+# ============================================================================
+# Stage 1: downloader — fetch all static/Go binaries; zero apt overhead
+# ============================================================================
+FROM alpine:3.21 AS downloader
+
+RUN apk add --no-cache curl unzip tar
+
+WORKDIR /tools
+
+# --- ProjectDiscovery suite (pin versions; bump ARGs to upgrade) ---
+ARG HTTPX_VERSION=1.3.6
+ARG SUBFINDER_VERSION=2.6.3
+ARG NUCLEI_VERSION=3.2.9
+ARG KATANA_VERSION=1.0.4
+ARG DNSX_VERSION=1.1.4
+ARG CHAOS_VERSION=0.5.1
+ARG NAABU_VERSION=2.3.0
+ARG NOTIFY_VERSION=1.0.5
+
+RUN curl -sLo httpx.zip \
+      "https://github.com/projectdiscovery/httpx/releases/download/v${HTTPX_VERSION}/httpx_${HTTPX_VERSION}_linux_amd64.zip" && \
+    unzip -q httpx.zip httpx && chmod +x httpx && rm httpx.zip
+
+RUN curl -sLo subfinder.zip \
+      "https://github.com/projectdiscovery/subfinder/releases/download/v${SUBFINDER_VERSION}/subfinder_${SUBFINDER_VERSION}_linux_amd64.zip" && \
+    unzip -q subfinder.zip subfinder && chmod +x subfinder && rm subfinder.zip
+
+RUN curl -sLo nuclei.zip \
+      "https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_amd64.zip" && \
+    unzip -q nuclei.zip nuclei && chmod +x nuclei && rm nuclei.zip
+
+RUN curl -sLo katana.zip \
+      "https://github.com/projectdiscovery/katana/releases/download/v${KATANA_VERSION}/katana_${KATANA_VERSION}_linux_amd64.zip" && \
+    unzip -q katana.zip katana && chmod +x katana && rm katana.zip
+
+RUN curl -sLo dnsx.zip \
+      "https://github.com/projectdiscovery/dnsx/releases/download/v${DNSX_VERSION}/dnsx_${DNSX_VERSION}_linux_amd64.zip" && \
+    unzip -q dnsx.zip dnsx && chmod +x dnsx && rm dnsx.zip
+
+RUN curl -sLo chaos.zip \
+      "https://github.com/projectdiscovery/chaos-client/releases/download/v${CHAOS_VERSION}/chaos-client_${CHAOS_VERSION}_linux_amd64.zip" && \
+    unzip -q chaos.zip chaos-client && mv chaos-client chaos && chmod +x chaos && rm chaos.zip
+
+RUN curl -sLo naabu.zip \
+      "https://github.com/projectdiscovery/naabu/releases/download/v${NAABU_VERSION}/naabu_${NAABU_VERSION}_linux_amd64.zip" && \
+    unzip -q naabu.zip naabu && chmod +x naabu && rm naabu.zip
+
+RUN curl -sLo notify.zip \
+      "https://github.com/projectdiscovery/notify/releases/download/v${NOTIFY_VERSION}/notify_${NOTIFY_VERSION}_linux_amd64.zip" && \
+    unzip -q notify.zip notify && chmod +x notify && rm notify.zip
+
+# --- tomnomnom tools ---
+ARG HTTPROBE_VERSION=0.2
+ARG WAYBACKURLS_VERSION=0.1.0
+ARG UNFURL_VERSION=0.4.3
+ARG GRON_VERSION=0.7.1
+
+RUN curl -sLo httprobe.tgz \
+      "https://github.com/tomnomnom/httprobe/releases/download/v${HTTPROBE_VERSION}/httprobe-linux-amd64-${HTTPROBE_VERSION}.tgz" && \
+    tar -xzf httprobe.tgz && chmod +x httprobe && rm httprobe.tgz
+
+RUN curl -sLo waybackurls.tgz \
+      "https://github.com/tomnomnom/waybackurls/releases/download/v${WAYBACKURLS_VERSION}/waybackurls-linux-amd64-${WAYBACKURLS_VERSION}.tgz" && \
+    tar -xzf waybackurls.tgz && chmod +x waybackurls && rm waybackurls.tgz
+
+RUN curl -sLo unfurl.tgz \
+      "https://github.com/tomnomnom/unfurl/releases/download/v${UNFURL_VERSION}/unfurl-linux-amd64-${UNFURL_VERSION}.tgz" && \
+    tar -xzf unfurl.tgz && chmod +x unfurl && rm unfurl.tgz
+
+RUN curl -sLo gron.tgz \
+      "https://github.com/tomnomnom/gron/releases/download/v${GRON_VERSION}/gron-linux-amd64-${GRON_VERSION}.tgz" && \
+    tar -xzf gron.tgz && chmod +x gron && rm gron.tgz
+
+# --- misc static tools ---
+ARG FFUF_VERSION=2.1.0
+ARG RUSH_VERSION=0.5.4
+ARG MINISERVE_VERSION=0.28.0
+ARG GODORK_VERSION=1.0.2
+ARG FZF_VERSION=0.62.0
+
+RUN curl -sLo ffuf.tgz \
+      "https://github.com/ffuf/ffuf/releases/download/v${FFUF_VERSION}/ffuf_${FFUF_VERSION}_linux_amd64.tar.gz" && \
+    tar -xzf ffuf.tgz ffuf && chmod +x ffuf && rm ffuf.tgz
+
+RUN curl -sLo rush.tgz \
+      "https://github.com/shenwei356/rush/releases/download/v${RUSH_VERSION}/rush_linux_amd64.tar.gz" && \
+    tar -xzf rush.tgz rush && chmod +x rush && rm rush.tgz
+
+RUN curl -sLo miniserve \
+      "https://github.com/svenstaro/miniserve/releases/download/v${MINISERVE_VERSION}/miniserve-v${MINISERVE_VERSION}-x86_64-unknown-linux-musl" && \
+    chmod +x miniserve
+
+RUN curl -sLo go-dork \
+      "https://github.com/dwisiswant0/go-dork/releases/download/v${GODORK_VERSION}/go-dork_${GODORK_VERSION}_linux_amd64" && \
+    chmod +x go-dork
+
+# fzf — static binary; Debian bookworm packages 0.38.0 which pre-dates --zsh
+RUN curl -sLo fzf.tgz \
+      "https://github.com/junegunn/fzf/releases/download/v${FZF_VERSION}/fzf-${FZF_VERSION}-linux_amd64.tar.gz" && \
+    tar -xzf fzf.tgz fzf && chmod +x fzf && rm fzf.tgz
+
+# ============================================================================
+# Stage 2: runtime — debian-slim keeps the base small; kali repos not needed
+# when all Go tools arrive via COPY --from=downloader
+# ============================================================================
+FROM debian:bookworm-slim
+
+LABEL project="scrt" scenario="web" author="fr3d"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ="America/New_York" \
+    PATH="/home/kali/.local/bin:/usr/local/bin:$PATH"
+
+# apt installs are limited to what cannot arrive as a static binary:
+#   libpcap0.8  — naabu (SYN scanner) runtime dependency
+#   libcap2-bin — setcap for naabu raw-socket capability
+#   python3/pip — sqlmap, mitmproxy, wfuzz (pip versions >> apt versions)
+#   exiftool    — Perl-based; no practical static alternative
+#   DB clients  — mysql/psql needed by sqsh/sqlmap post-exploitation
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      bat \
+      ca-certificates \
+      curl \
+      fd-find \
+      default-mysql-client \
+      exiftool \
+      git \
+      jq \
+      libcap2-bin \
+      libpcap0.8 \
+      netcat-traditional \
+      postgresql-client \
+      python3 \
+      python3-pip \
+      sudo \
+      tmux \
+      tree \
+      unzip \
+      vim \
+      wget \
+      zsh && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Python tools installed via pip — current releases, not distro snapshots
+RUN pip3 install --no-cache-dir --break-system-packages \
+      mitmproxy \
+      sqlmap \
+      wfuzz
+
+RUN groupadd --gid 1000 kali && \
+    useradd --home-dir /home/kali --create-home --uid 1000 \
+      --gid 1000 --shell /usr/bin/zsh --skel /dev/null kali && \
+    chown -R kali:kali /home/kali && \
+    echo kali:kali | chpasswd && \
+    usermod -aG sudo kali && \
+    echo 'kali  ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/kali
+
+# All static Go binaries land in /usr/local/bin — no apt needed for them
+COPY --from=downloader /tools/ /usr/local/bin/
+
+# Grant naabu raw-socket capability so it can SYN scan as non-root
+RUN setcap cap_net_raw,cap_net_admin=eip /usr/local/bin/naabu 2>/dev/null || true
+
+WORKDIR /home/kali/
+USER kali
+
+# Install shell environment BEFORE placing config files.
+# oh-my-zsh --unattended backs up any existing .zshrc and writes its own
+# template; we overwrite that template with the real config afterwards.
+# This mirrors the ordering in sources/3-home.sh exactly.
+RUN mkdir -p \
+      "$HOME/.config" \
+      "$HOME/.local/bin" \
+      "$HOME/.logs" \
+      "$HOME/.tools" \
+      "$HOME/.zsh" \
+      "$HOME/.proxychains" \
+      "$HOME/.config/nuclei" \
+      "$HOME/.config/subfinder" \
+      "$HOME/.config/notify" && \
+    git clone --depth 1 https://github.com/tmux-plugins/tpm \
+      "$HOME/.tmux/plugins/tpm" && \
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
+    git clone --depth 1 https://github.com/zsh-users/zsh-autosuggestions \
+      "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" && \
+    git clone --depth 1 https://github.com/zsh-users/zsh-syntax-highlighting \
+      "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting" && \
+    curl -sS https://starship.rs/install.sh | sh -s -- --yes --bin-dir "$HOME/.local/bin" && \
+    ln -sf "$(command -v fdfind 2>/dev/null || command -v fd 2>/dev/null)" \
+      "$HOME/.local/bin/fd" 2>/dev/null || true
+
+# Config files placed AFTER OMZ install — matches 3-home.sh ordering
+COPY --chown=kali:kali resources/zsh/.zshrc                          /home/kali/.zshrc
+COPY --chown=kali:kali resources/zsh/.zprofile                       /home/kali/.zprofile
+COPY --chown=kali:kali resources/zsh/aliases                         /home/kali/.zsh/aliases
+COPY --chown=kali:kali resources/zsh/functions.sh                    /home/kali/.zsh/functions.sh
+COPY --chown=kali:kali resources/zsh/kali.zsh-theme                  /home/kali/.oh-my-zsh/custom/themes/kali.zsh-theme
+COPY --chown=kali:kali resources/zsh/history                         /home/kali/.history
+COPY --chown=kali:kali resources/starship.toml                       /home/kali/.config/starship.toml
+COPY --chown=kali:kali resources/tmux.conf                           /home/kali/.tmux.conf
+COPY --chown=kali:kali resources/proxychains.conf                    /home/kali/.proxychains/proxychains.conf
+COPY --chown=kali:kali resources/shell-upgrade.sh                    /home/kali/.tools/shell-upgrade.sh
+
+CMD ["/usr/bin/zsh"]

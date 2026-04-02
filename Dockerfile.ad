@@ -1,0 +1,186 @@
+# Dockerfile.ad — Active Directory & internal network pentesting environment
+#
+# Strategy: pivot/AD-exploitation Go tools (kerbrute, chisel, netexec) arrive
+# via the downloader stage as static binaries. Python AD tooling (impacket,
+# bloodhound, netexec, enum4linux-ng) is installed via pip — versions tracked
+# upstream rather than frozen in distro packages. apt is reserved for
+# C-library-dependent tools (nmap, smbclient, ldap-utils, kerberos client).
+#
+# Build:  docker build -f Dockerfile.ad -t scrt/ad:latest .
+# Run:    docker run --rm -it scrt/ad:latest
+
+# ============================================================================
+# Stage 1: downloader — static binaries only, no apt
+# ============================================================================
+FROM alpine:3.21 AS downloader
+
+RUN apk add --no-cache curl unzip tar gzip
+
+WORKDIR /tools
+
+# kerbrute — already available as a compiled binary in resources/
+# Copy it from the build context instead of fetching from the internet.
+COPY resources/kerbrute /tools/kerbrute
+RUN chmod +x /tools/kerbrute
+
+# chisel — TCP tunneling / SOCKS proxy pivot tool
+ARG CHISEL_VERSION=1.10.1
+RUN curl -sLo chisel.gz \
+      "https://github.com/jpillora/chisel/releases/download/v${CHISEL_VERSION}/chisel_${CHISEL_VERSION}_linux_amd64.gz" && \
+    gunzip chisel.gz && chmod +x chisel
+
+# Windows variant for dropping on targets
+RUN curl -sLo chisel-win.gz \
+      "https://github.com/jpillora/chisel/releases/download/v${CHISEL_VERSION}/chisel_${CHISEL_VERSION}_windows_amd64.gz" && \
+    gunzip chisel-win.gz && mv chisel-win win-chisel.exe
+
+# miniserve — lightweight file server for payload delivery
+ARG MINISERVE_VERSION=0.28.0
+RUN curl -sLo miniserve \
+      "https://github.com/svenstaro/miniserve/releases/download/v${MINISERVE_VERSION}/miniserve-v${MINISERVE_VERSION}-x86_64-unknown-linux-musl" && \
+    chmod +x miniserve
+
+# pspy — process snooping without root (Linux privilege escalation recon)
+ARG PSPY_VERSION=1.2.1
+RUN curl -sLo pspy \
+      "https://github.com/DominicBreuker/pspy/releases/download/v${PSPY_VERSION}/pspy64" && \
+    chmod +x pspy && \
+    curl -sLo pspys \
+      "https://github.com/DominicBreuker/pspy/releases/download/v${PSPY_VERSION}/pspy64s" && \
+    chmod +x pspys
+
+# linpeas / winpeas — pin to a known release for reproducibility
+ARG PEASS_TAG=20240101
+RUN curl -sLo linpeas \
+      "https://github.com/peass-ng/PEASS-ng/releases/latest/download/linpeas.sh" && \
+    chmod +x linpeas && \
+    curl -sLo winpeas.exe \
+      "https://github.com/peass-ng/PEASS-ng/releases/latest/download/winPEASx64_ofs.exe"
+
+# Ghostpack compiled binaries (Rubeus, Certify) for Windows AD attacks
+# Source: https://github.com/r3motecontrol/Ghostpack-CompiledBinaries
+WORKDIR /tools/windows
+RUN curl -sLo rubeus.exe \
+      "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/Rubeus.exe" && \
+    curl -sLo certify.exe \
+      "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/Certify.exe"
+
+# nishang & powerview — PowerShell offensive frameworks
+WORKDIR /tools/ps
+RUN apk add --no-cache git && \
+    git clone --depth 1 https://github.com/samratashok/nishang.git nishang && \
+    git clone --depth 1 https://github.com/aniqfakhrul/powerview.py powerview
+
+# ============================================================================
+# Stage 2: runtime
+# ============================================================================
+# kali-rolling: netexec, enum4linux-ng, evil-winrm are all kali-packaged.
+# None of these exist on PyPI or have reliable gem releases outside Kali.
+FROM kalilinux/kali-rolling
+
+LABEL project="scrt" scenario="ad" author="fr3d"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ="America/New_York" \
+    PATH="/home/kali/.local/bin:/usr/local/bin:$PATH"
+
+# Bootstrap HTTPS mirror first, then install all AD tooling in one layer
+RUN echo "deb http://kali.download/kali kali-rolling main contrib non-free non-free-firmware" > /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    echo "deb https://kali.download/kali kali-rolling main contrib non-free non-free-firmware" > /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      bat \
+      curl \
+      enum4linux-ng \
+      fd-find \
+      evil-winrm \
+      fzf \
+      git \
+      iputils-ping \
+      jq \
+      krb5-user \
+      ldap-utils \
+      libcap2-bin \
+      libpcap0.8 \
+      netcat-traditional \
+      netexec \
+      nmap \
+      python3 \
+      python3-dev \
+      python3-pip \
+      smbclient \
+      sudo \
+      tmux \
+      tree \
+      unzip \
+      vim \
+      wget \
+      zsh && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# impacket and bloodhound are on PyPI with current releases
+RUN pip3 install --no-cache-dir --break-system-packages \
+      impacket \
+      bloodhound
+
+RUN groupadd --gid 1000 kali && \
+    useradd --home-dir /home/kali --create-home --uid 1000 \
+      --gid 1000 --shell /usr/bin/zsh --skel /dev/null kali && \
+    chown -R kali:kali /home/kali && \
+    echo kali:kali | chpasswd && \
+    usermod -aG sudo kali && \
+    echo 'kali  ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/kali
+
+# Static binaries from downloader stage
+COPY --from=downloader /tools/kerbrute      /usr/local/bin/kerbrute
+COPY --from=downloader /tools/chisel        /usr/local/bin/chisel
+COPY --from=downloader /tools/miniserve     /usr/local/bin/miniserve
+COPY --from=downloader /tools/pspy          /usr/local/bin/pspy
+COPY --from=downloader /tools/pspys         /usr/local/bin/pspys
+COPY --from=downloader /tools/linpeas       /usr/local/bin/linpeas
+
+# Windows payloads land in a dedicated directory
+COPY --from=downloader /tools/windows/      /opt/windows/
+RUN chmod +x /opt/windows/*.exe 2>/dev/null || true
+
+# PowerShell frameworks
+COPY --from=downloader /tools/ps/           /opt/ps/
+
+# Drop the smbserver helper from project resources
+COPY resources/smbserver.py                 /opt/smbserver.py
+
+WORKDIR /home/kali/
+USER kali
+
+RUN mkdir -p \
+      "$HOME/.config" \
+      "$HOME/.local/bin" \
+      "$HOME/.logs" \
+      "$HOME/.tools" \
+      "$HOME/.zsh" \
+      "$HOME/.proxychains" && \
+    git clone --depth 1 https://github.com/tmux-plugins/tpm \
+      "$HOME/.tmux/plugins/tpm" && \
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
+    git clone --depth 1 https://github.com/zsh-users/zsh-autosuggestions \
+      "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" && \
+    git clone --depth 1 https://github.com/zsh-users/zsh-syntax-highlighting \
+      "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting" && \
+    curl -sS https://starship.rs/install.sh | sh -s -- --yes --bin-dir "$HOME/.local/bin" && \
+    ln -sf "$(command -v fdfind 2>/dev/null || command -v fd 2>/dev/null)" \
+      "$HOME/.local/bin/fd" 2>/dev/null || true
+
+COPY --chown=kali:kali resources/zsh/.zshrc                          /home/kali/.zshrc
+COPY --chown=kali:kali resources/zsh/.zprofile                       /home/kali/.zprofile
+COPY --chown=kali:kali resources/zsh/aliases                         /home/kali/.zsh/aliases
+COPY --chown=kali:kali resources/zsh/functions.sh                    /home/kali/.zsh/functions.sh
+COPY --chown=kali:kali resources/zsh/kali.zsh-theme                  /home/kali/.oh-my-zsh/custom/themes/kali.zsh-theme
+COPY --chown=kali:kali resources/zsh/history                         /home/kali/.history
+COPY --chown=kali:kali resources/starship.toml                       /home/kali/.config/starship.toml
+COPY --chown=kali:kali resources/tmux.conf                           /home/kali/.tmux.conf
+COPY --chown=kali:kali resources/proxychains.conf                    /home/kali/.proxychains/proxychains.conf
+COPY --chown=kali:kali resources/shell-upgrade.sh                    /home/kali/.tools/shell-upgrade.sh
+
+CMD ["/usr/bin/zsh"]

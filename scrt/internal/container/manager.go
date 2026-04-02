@@ -1,6 +1,7 @@
 package container
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	imagetypes "github.com/docker/docker/api/types/image"
 	dockerclient "github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 
 	charmlog "github.com/charmbracelet/log"
 )
@@ -43,12 +45,22 @@ type ResizeExecParams struct {
 
 // Info holds displayable container metadata.
 type Info struct {
-	Name      string `json:"Name"`
-	Status    string `json:"Status"`
-	State     string `json:"State"`
-	Image     string `json:"Image"`
-	CreatedAt string `json:"CreatedAt"`
+	Name    string `json:"Name"`
+	Project string `json:"Project"` // scrt.project label; falls back to Name
+	Status  string `json:"Status"`
+	State   string `json:"State"`
+	Image   string `json:"Image"`
+	IP      string `json:"IP"` // primary container IP; empty when stopped or host-networked
 }
+
+// BackgroundExecParams holds parameters for ExecBackground. (CS-5)
+type BackgroundExecParams struct {
+	Project string
+	Cmd     []string // executed directly; caller is responsible for shell wrapping
+}
+
+// maxExecOutput caps the output buffer for background exec jobs.
+const maxExecOutput = 1 << 20 // 1 MB
 
 // ImportParams holds the parameters for importing a backup tar archive.
 type ImportParams struct {
@@ -151,6 +163,42 @@ func (m *Manager) Enter(ctx context.Context, project, shell string) error {
 	return nil
 }
 
+// StartExisting restarts a stopped container via the Docker SDK.
+// It is a no-op if the container is already running.
+func (m *Manager) StartExisting(ctx context.Context, project string) error {
+	exists, running := m.containerState(ctx, project)
+	if !exists {
+		return fmt.Errorf("%w: %s", ErrContainerNotFound, project)
+	}
+	if running {
+		return nil // already running; not an error
+	}
+	if err := m.client.ContainerStart(ctx, project, containertypes.StartOptions{}); err != nil {
+		return fmt.Errorf("start container %s: %w", project, err)
+	}
+	return nil
+}
+
+// CopyFrom copies a file or directory from the container as a tar stream.
+// The caller must close the returned ReadCloser.
+func (m *Manager) CopyFrom(ctx context.Context, project, srcPath string) (io.ReadCloser, error) {
+	reader, _, err := m.client.CopyFromContainer(ctx, project, srcPath)
+	if err != nil {
+		return nil, fmt.Errorf("copy from container %s:%s: %w", project, srcPath, err)
+	}
+	return reader, nil
+}
+
+// CopyTo copies a tar-encoded stream into the container at dstPath.
+// The content reader must contain a valid tar archive; the Docker daemon
+// extracts it into dstPath inside the container.
+func (m *Manager) CopyTo(ctx context.Context, project, dstPath string, content io.Reader) error {
+	if err := m.client.CopyToContainer(ctx, project, dstPath, content, containertypes.CopyToContainerOptions{}); err != nil {
+		return fmt.Errorf("copy to container %s:%s: %w", project, dstPath, err)
+	}
+	return nil
+}
+
 // Stop stops a running container via the Docker SDK.
 func (m *Manager) Stop(ctx context.Context, project string) error {
 	exists, running := m.containerState(ctx, project)
@@ -204,11 +252,29 @@ func (m *Manager) List(ctx context.Context) ([]Info, error) {
 		if len(c.Names) > 0 {
 			name = strings.TrimPrefix(c.Names[0], "/")
 		}
+
+		proj := c.Labels[LabelProject]
+		if proj == "" {
+			proj = name
+		}
+
+		ip := ""
+		if c.NetworkSettings != nil {
+			for _, ep := range c.NetworkSettings.Networks {
+				if ep.IPAddress != "" {
+					ip = ep.IPAddress
+					break
+				}
+			}
+		}
+
 		infos = append(infos, Info{
-			Name:   name,
-			State:  c.State,
-			Status: c.Status,
-			Image:  c.Image,
+			Name:    name,
+			Project: proj,
+			State:   c.State,
+			Status:  c.Status,
+			Image:   c.Image,
+			IP:      ip,
 		})
 	}
 
@@ -304,6 +370,47 @@ func (m *Manager) ResizeExec(ctx context.Context, p ResizeExecParams) error {
 		return fmt.Errorf("resize exec %s: %w", p.ExecID, err)
 	}
 	return nil
+}
+
+// ExecBackground runs a command inside a container without a TTY, captures
+// combined stdout+stderr (up to maxExecOutput bytes), and blocks until the
+// command exits or ctx is cancelled. Returns output, exit code, and any error.
+func (m *Manager) ExecBackground(ctx context.Context, p BackgroundExecParams) ([]byte, int, error) {
+	exists, running := m.containerState(ctx, p.Project)
+	if !exists {
+		return nil, -1, fmt.Errorf("%w: %s", ErrContainerNotFound, p.Project)
+	}
+	if !running {
+		return nil, -1, fmt.Errorf("%w: %s", ErrContainerNotRunning, p.Project)
+	}
+
+	execResp, err := m.client.ContainerExecCreate(ctx, p.Project, containertypes.ExecOptions{
+		AttachStdout: true,
+		AttachStderr: true,
+		Tty:          false,
+		Cmd:          p.Cmd,
+	})
+	if err != nil {
+		return nil, -1, fmt.Errorf("exec create %s: %w", p.Project, err)
+	}
+
+	hijack, err := m.client.ContainerExecAttach(ctx, execResp.ID, containertypes.ExecAttachOptions{})
+	if err != nil {
+		return nil, -1, fmt.Errorf("exec attach %s: %w", p.Project, err)
+	}
+	defer hijack.Conn.Close()
+
+	var buf bytes.Buffer
+	if _, err := stdcopy.StdCopy(&buf, &buf, io.LimitReader(hijack.Reader, maxExecOutput)); err != nil && err != io.EOF {
+		return nil, -1, fmt.Errorf("exec read %s: %w", p.Project, err)
+	}
+
+	inspect, err := m.client.ContainerExecInspect(ctx, execResp.ID)
+	if err != nil {
+		return buf.Bytes(), -1, fmt.Errorf("exec inspect %s: %w", p.Project, err)
+	}
+
+	return buf.Bytes(), inspect.ExitCode, nil
 }
 
 // containerState checks whether a container exists and whether it's running

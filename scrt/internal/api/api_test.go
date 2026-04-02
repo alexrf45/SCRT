@@ -13,6 +13,7 @@ import (
 	"github.com/alexrf45/scrt/internal/container"
 )
 
+
 const testToken = "test-token-abc123xyz"
 
 // Compile-time assertion: mockBackend must satisfy backend.Backend.
@@ -21,16 +22,20 @@ var _ backend.Backend = (*mockBackend)(nil)
 // mockBackend implements backend.Backend for testing.
 // Any nil field returns its zero value without error.
 type mockBackend struct {
-	startFn        func(context.Context, container.RunParams) error
-	enterFn        func(context.Context, string, string) error
-	stopFn         func(context.Context, string) error
-	destroyFn      func(context.Context, string) error
-	listFn         func(context.Context) ([]container.Info, error)
-	pullFn         func(context.Context, string) error
-	importBackupFn func(context.Context, container.ImportParams) error
-	webExecFn      func(context.Context, container.WebExecParams) (*container.ExecSession, error)
-	resizeExecFn   func(context.Context, container.ResizeExecParams) error
-	closeFn        func() error
+	startFn            func(context.Context, container.RunParams) error
+	enterFn            func(context.Context, string, string) error
+	startExistingFn    func(context.Context, string) error
+	stopFn             func(context.Context, string) error
+	destroyFn          func(context.Context, string) error
+	listFn             func(context.Context) ([]container.Info, error)
+	pullFn             func(context.Context, string) error
+	importBackupFn     func(context.Context, container.ImportParams) error
+	webExecFn          func(context.Context, container.WebExecParams) (*container.ExecSession, error)
+	resizeExecFn       func(context.Context, container.ResizeExecParams) error
+	copyFromFn         func(context.Context, string, string) (io.ReadCloser, error)
+	copyToFn           func(context.Context, string, string, io.Reader) error
+	execBackgroundFn   func(context.Context, container.BackgroundExecParams) ([]byte, int, error)
+	closeFn            func() error
 }
 
 func (m *mockBackend) Start(ctx context.Context, p container.RunParams) error {
@@ -45,6 +50,34 @@ func (m *mockBackend) Enter(ctx context.Context, project, shell string) error {
 		return m.enterFn(ctx, project, shell)
 	}
 	return nil
+}
+
+func (m *mockBackend) StartExisting(ctx context.Context, project string) error {
+	if m.startExistingFn != nil {
+		return m.startExistingFn(ctx, project)
+	}
+	return nil
+}
+
+func (m *mockBackend) CopyFrom(ctx context.Context, project, srcPath string) (io.ReadCloser, error) {
+	if m.copyFromFn != nil {
+		return m.copyFromFn(ctx, project, srcPath)
+	}
+	return io.NopCloser(strings.NewReader("")), nil
+}
+
+func (m *mockBackend) CopyTo(ctx context.Context, project, dstPath string, content io.Reader) error {
+	if m.copyToFn != nil {
+		return m.copyToFn(ctx, project, dstPath, content)
+	}
+	return nil
+}
+
+func (m *mockBackend) ExecBackground(ctx context.Context, p container.BackgroundExecParams) ([]byte, int, error) {
+	if m.execBackgroundFn != nil {
+		return m.execBackgroundFn(ctx, p)
+	}
+	return nil, 0, nil
 }
 
 func (m *mockBackend) Stop(ctx context.Context, project string) error {
@@ -179,9 +212,16 @@ func TestAPIRoutesRequireAuth(t *testing.T) {
 		body   string
 	}{
 		{http.MethodGet, "/api/v1/containers", ""},
+		{http.MethodPost, "/api/v1/containers/proj/start", ""},
 		{http.MethodPost, "/api/v1/containers/proj/stop", ""},
 		{http.MethodPost, "/api/v1/containers/proj/destroy", ""},
 		{http.MethodPost, "/api/v1/containers/proj/backup", ""},
+		{http.MethodGet, "/api/v1/containers/proj/files?path=/tmp/flag.txt", ""},
+		{http.MethodPost, "/api/v1/containers/proj/files?path=/tmp/", ""},
+		{http.MethodPost, "/api/v1/containers/proj/exec", `{"cmd":"id"}`},
+		{http.MethodGet, "/api/v1/jobs", ""},
+		{http.MethodGet, "/api/v1/jobs/abc123", ""},
+		{http.MethodDelete, "/api/v1/jobs/abc123", ""},
 		{http.MethodPost, "/api/v1/images/pull", `{"image":"test:latest"}`},
 	}
 

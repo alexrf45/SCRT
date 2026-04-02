@@ -16,21 +16,24 @@ import (
 
 // ServeParams configures the HTTP server. (CS-5)
 type ServeParams struct {
-	Addr    string
-	Token   string
-	Backend backend.Backend
-	Config  config.Config
+	Addr     string
+	Token    string
+	Backend  backend.Backend
+	Config   config.Config
+	CertFile string // optional PEM certificate; enables TLS when set with KeyFile
+	KeyFile  string // optional PEM private key; enables TLS when set with CertFile
 }
 
 // Server serves the SCRT HTTP API and embedded web UI.
 type Server struct {
-	p   ServeParams
-	mux *http.ServeMux
+	p    ServeParams
+	mux  *http.ServeMux
+	jobs *jobStore
 }
 
 // New creates a Server and registers all routes.
 func New(p ServeParams) *Server {
-	s := &Server{p: p, mux: http.NewServeMux()}
+	s := &Server{p: p, mux: http.NewServeMux(), jobs: newJobStore()}
 	s.registerRoutes()
 	return s
 }
@@ -48,7 +51,13 @@ func (s *Server) Start(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		var err error
+		if s.p.CertFile != "" && s.p.KeyFile != "" {
+			err = srv.ListenAndServeTLS(s.p.CertFile, s.p.KeyFile)
+		} else {
+			err = srv.ListenAndServe()
+		}
+		if !errors.Is(err, http.ErrServerClosed) {
 			errCh <- fmt.Errorf("listen %s: %w", s.p.Addr, err)
 		}
 		close(errCh)
@@ -74,9 +83,16 @@ func (s *Server) registerRoutes() {
 
 	// Authenticated API
 	s.mux.Handle("GET /api/v1/containers", auth(s.handleListContainers))
+	s.mux.Handle("POST /api/v1/containers/{name}/start", auth(s.handleStartContainer))
 	s.mux.Handle("POST /api/v1/containers/{name}/stop", auth(s.handleStopContainer))
 	s.mux.Handle("POST /api/v1/containers/{name}/destroy", auth(s.handleDestroyContainer))
 	s.mux.Handle("POST /api/v1/containers/{name}/backup", auth(s.handleBackupContainer))
+	s.mux.Handle("GET /api/v1/containers/{name}/files", auth(s.handleDownloadFile))
+	s.mux.Handle("POST /api/v1/containers/{name}/files", auth(s.handleUploadFile))
+	s.mux.Handle("POST /api/v1/containers/{name}/exec", auth(s.handleExecBackground))
+	s.mux.Handle("GET /api/v1/jobs", auth(s.handleListJobs))
+	s.mux.Handle("GET /api/v1/jobs/{id}", auth(s.handleGetJob))
+	s.mux.Handle("DELETE /api/v1/jobs/{id}", auth(s.handleDeleteJob))
 	s.mux.Handle("POST /api/v1/images/pull", auth(s.handlePullImage))
 
 	// WebSocket terminal — auth via ?token= query param (browsers cannot set

@@ -11,10 +11,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # Bootstrap HTTPS support and install base utilities
 RUN echo "deb http://kali.download/kali kali-rolling main contrib non-free non-free-firmware" > /etc/apt/sources.list && \
   apt-get update && \
-  apt-get install -y ca-certificates && \
+  apt-get install -y --no-install-recommends ca-certificates && \
   echo "deb https://kali.download/kali kali-rolling main contrib non-free non-free-firmware" > /etc/apt/sources.list && \
   apt-get update && \
-  apt-get install -y \
+  apt-get install -y --no-install-recommends \
   curl \
   git \
   nano \
@@ -22,8 +22,8 @@ RUN echo "deb http://kali.download/kali kali-rolling main contrib non-free non-f
   tmux \
   vim \
   wget \
-  zsh
-#apt-get clean && rm -rf /var/lib/apt/lists/*
+  zsh && \
+  apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --gid 1000 kali \
   && useradd --home-dir /home/kali --create-home --uid 1000 \
@@ -39,12 +39,16 @@ USER kali
 
 COPY --chown=kali:kali sources/ /tmp/sources/
 
-RUN sudo chmod +x /tmp/sources/*.sh && /tmp/sources/0-base.sh
+RUN sudo chmod +x /tmp/sources/*.sh && /tmp/sources/0-base.sh && \
+  sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
 
-RUN /tmp/sources/1-tools.sh
+RUN /tmp/sources/1-tools.sh && \
+  sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
 
-#uncomment for bug bounty usage
-#RUN /tmp/sources/2-tools.sh
+# Uncomment for bug bounty tooling (httpx, subfinder, nuclei, etc.)
+# Prefer Dockerfile.web for a leaner, multi-stage bug bounty image instead.
+#RUN /tmp/sources/2-tools.sh && \
+#  sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/*
 
 COPY --chown=kali:kali resources /home/kali/resources/
 
