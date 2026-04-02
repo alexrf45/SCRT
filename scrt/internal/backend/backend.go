@@ -36,5 +36,9 @@ type Backend interface {
 	CopyFrom(ctx context.Context, project, srcPath string) (io.ReadCloser, error)
 	// CopyTo copies a tar-encoded stream into the container at dstPath.
 	CopyTo(ctx context.Context, project, dstPath string, content io.Reader) error
+	// ExecBackground runs a non-interactive command in the container and returns
+	// combined stdout+stderr, exit code, and any exec error. Blocks until exit or
+	// ctx cancellation. Output is capped at 1 MB.
+	ExecBackground(ctx context.Context, p container.BackgroundExecParams) ([]byte, int, error)
 	Close() error
 }

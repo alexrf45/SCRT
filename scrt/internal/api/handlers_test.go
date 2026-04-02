@@ -708,6 +708,177 @@ func TestHandleUploadFile(t *testing.T) {
 	}
 }
 
+func TestHandleExecBackground(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		project    string
+		body       string
+		backend    *mockBackend
+		authed     bool
+		wantStatus int
+		wantJobID  bool
+	}{
+		{
+			name:       "unauthorized",
+			project:    "myproj",
+			body:       `{"cmd":"id"}`,
+			backend:    &mockBackend{},
+			authed:     false,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "invalid project name",
+			project:    "bad.name",
+			body:       `{"cmd":"id"}`,
+			backend:    &mockBackend{},
+			authed:     true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "missing cmd",
+			project:    "myproj",
+			body:       `{"cmd":""}`,
+			backend:    &mockBackend{},
+			authed:     true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "malformed json",
+			project:    "myproj",
+			body:       `not-json`,
+			backend:    &mockBackend{},
+			authed:     true,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:    "success — job accepted immediately",
+			project: "myproj",
+			body:    `{"cmd":"id"}`,
+			backend: &mockBackend{
+				// ExecBackground blocks — use a channel to prevent the goroutine
+				// from racing against the test assertion.
+				execBackgroundFn: func(ctx context.Context, _ container.BackgroundExecParams) ([]byte, int, error) {
+					<-ctx.Done()
+					return nil, -1, ctx.Err()
+				},
+			},
+			authed:     true,
+			wantStatus: http.StatusAccepted,
+			wantJobID:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			srv := newTestServer(t, tt.backend)
+			w := do(t, srv, http.MethodPost, "/api/v1/containers/"+tt.project+"/exec", strings.NewReader(tt.body), tt.authed)
+
+			if w.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", w.Code, tt.wantStatus)
+			}
+			if tt.wantJobID {
+				var resp map[string]string
+				if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+					t.Fatalf("decode response: %v", err)
+				}
+				if resp["id"] == "" {
+					t.Error("expected non-empty job id in response")
+				}
+			}
+		})
+	}
+}
+
+func TestHandleListJobs(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t, &mockBackend{})
+	w := do(t, srv, http.MethodGet, "/api/v1/jobs", nil, true)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", w.Code)
+	}
+	// Empty store returns a JSON array, not null
+	body := strings.TrimSpace(w.Body.String())
+	if body == "null" {
+		t.Error("expected JSON array, got null")
+	}
+}
+
+func TestHandleGetJob(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		id         string
+		authed     bool
+		wantStatus int
+	}{
+		{
+			name:       "unauthorized",
+			id:         "nonexistent",
+			authed:     false,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "not found",
+			id:         "nonexistent",
+			authed:     true,
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			srv := newTestServer(t, &mockBackend{})
+			w := do(t, srv, http.MethodGet, "/api/v1/jobs/"+tt.id, nil, tt.authed)
+			if w.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", w.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
+func TestHandleDeleteJob(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		id         string
+		authed     bool
+		wantStatus int
+	}{
+		{
+			name:       "unauthorized",
+			id:         "nonexistent",
+			authed:     false,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "not found",
+			id:         "nonexistent",
+			authed:     true,
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			srv := newTestServer(t, &mockBackend{})
+			w := do(t, srv, http.MethodDelete, "/api/v1/jobs/"+tt.id, nil, tt.authed)
+			if w.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", w.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
 func TestValidateTransferPath(t *testing.T) {
 	t.Parallel()
 

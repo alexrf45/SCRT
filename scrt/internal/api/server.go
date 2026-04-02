@@ -26,13 +26,14 @@ type ServeParams struct {
 
 // Server serves the SCRT HTTP API and embedded web UI.
 type Server struct {
-	p   ServeParams
-	mux *http.ServeMux
+	p    ServeParams
+	mux  *http.ServeMux
+	jobs *jobStore
 }
 
 // New creates a Server and registers all routes.
 func New(p ServeParams) *Server {
-	s := &Server{p: p, mux: http.NewServeMux()}
+	s := &Server{p: p, mux: http.NewServeMux(), jobs: newJobStore()}
 	s.registerRoutes()
 	return s
 }
@@ -88,6 +89,10 @@ func (s *Server) registerRoutes() {
 	s.mux.Handle("POST /api/v1/containers/{name}/backup", auth(s.handleBackupContainer))
 	s.mux.Handle("GET /api/v1/containers/{name}/files", auth(s.handleDownloadFile))
 	s.mux.Handle("POST /api/v1/containers/{name}/files", auth(s.handleUploadFile))
+	s.mux.Handle("POST /api/v1/containers/{name}/exec", auth(s.handleExecBackground))
+	s.mux.Handle("GET /api/v1/jobs", auth(s.handleListJobs))
+	s.mux.Handle("GET /api/v1/jobs/{id}", auth(s.handleGetJob))
+	s.mux.Handle("DELETE /api/v1/jobs/{id}", auth(s.handleDeleteJob))
 	s.mux.Handle("POST /api/v1/images/pull", auth(s.handlePullImage))
 
 	// WebSocket terminal — auth via ?token= query param (browsers cannot set

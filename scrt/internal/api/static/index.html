@@ -302,6 +302,118 @@
             padding: 0;
         }
         #files-close:hover { color: var(--fg); opacity: 1; }
+
+        /* Exec modal — reuses files-dialog shape */
+        #exec-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        #exec-modal.open { display: flex; }
+        #exec-dialog {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            width: 560px;
+            max-width: 94vw;
+        }
+        #exec-dialog h3 {
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: normal;
+        }
+        #exec-cmd {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--fg);
+            padding: 0.4rem 0.6rem;
+            font-family: inherit;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            outline: none;
+            margin-top: 0.5rem;
+        }
+        #exec-cmd:focus { border-color: var(--accent); }
+        #exec-status { font-size: 0.8rem; min-height: 1.1rem; color: var(--green); margin-top: 0.75rem; }
+        #exec-status.err { color: var(--red); }
+
+        /* Jobs panel */
+        #jobs-section { margin-top: 2rem; }
+        .jobs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+        }
+        .jobs-header-label {
+            font-size: 0.7rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .job-running { color: var(--yellow); }
+        .job-done    { color: var(--green); }
+        .job-error   { color: var(--red); }
+        .job-cmd     { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Output overlay */
+        #output-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 110;
+            align-items: center;
+            justify-content: center;
+        }
+        #output-overlay.open { display: flex; }
+        #output-dialog {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            width: 720px;
+            max-width: 96vw;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #output-dialog h3 {
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: normal;
+            flex-shrink: 0;
+        }
+        #output-pre {
+            flex: 1;
+            overflow: auto;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin-top: 0.75rem;
+        }
+        .output-hdr { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        #output-close {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        #output-close:hover { color: var(--fg); opacity: 1; }
     </style>
 </head>
 <body>
@@ -335,7 +447,8 @@
     <table>
         <thead>
             <tr>
-                <th>Name</th>
+                <th>Project</th>
+                <th>IP</th>
                 <th>State</th>
                 <th>Status</th>
                 <th>Image</th>
@@ -343,9 +456,12 @@
             </tr>
         </thead>
         <tbody id="tbody">
-            <tr><td colspan="5" class="dim" style="text-align:center;padding:1.5rem;">Loading...</td></tr>
+            <tr><td colspan="6" class="dim" style="text-align:center;padding:1.5rem;">Loading...</td></tr>
         </tbody>
     </table>
+
+    <!-- Background jobs panel -->
+    <div id="jobs-section" style="display:none;"><!-- filled by JS --></div>
 </div>
 
 <!-- Terminal panel (slides up from the bottom) -->
@@ -358,6 +474,33 @@
         <button id="term-close" onclick="closeShell()" title="Close terminal">&#x2715;</button>
     </div>
     <div id="term-body"></div>
+</div>
+
+<!-- Exec modal -->
+<div id="exec-modal">
+    <div id="exec-dialog">
+        <div class="files-header">
+            <h3>Run Command &mdash; <span id="exec-container-name"></span></h3>
+            <button id="exec-close-btn" onclick="closeExec()" title="Close">&#x2715;</button>
+        </div>
+        <div class="files-section-label">Command</div>
+        <input type="text" id="exec-cmd" placeholder="python3 /tmp/exploit.py --target 10.0.0.1" />
+        <div style="margin-top:0.75rem; display:flex; gap:0.5rem;">
+            <button onclick="runExec()">Run in background</button>
+        </div>
+        <div id="exec-status"></div>
+    </div>
+</div>
+
+<!-- Output overlay -->
+<div id="output-overlay">
+    <div id="output-dialog">
+        <div class="output-hdr">
+            <h3>Output &mdash; <span id="output-job-label"></span></h3>
+            <button id="output-close" onclick="closeOutput()" title="Close">&#x2715;</button>
+        </div>
+        <pre id="output-pre"></pre>
+    </div>
 </div>
 
 <!-- File transfer modal -->
@@ -396,6 +539,8 @@
 
     let token = sessionStorage.getItem('scrt_token') || '';
     let timer = null;
+    let jobTimer = null;
+    let execContainer = '';
     let currentContainer = '';
 
     // Terminal state
@@ -508,17 +653,20 @@
     function showDashboard() {
         document.getElementById('auth-form').style.display = 'none';
         document.getElementById('main').style.display = 'block';
-        // Sync theme selector to current theme
         const sel = document.getElementById('theme-select');
         if (sel) sel.value = currentTheme();
         loadContainers();
+        loadJobs();
         timer = setInterval(loadContainers, 10000);
     }
 
     function logout() {
         clearInterval(timer);
+        clearTimeout(jobTimer);
         closeShell();
         closeFiles();
+        closeExec();
+        closeOutput();
         token = '';
         sessionStorage.removeItem('scrt_token');
         document.getElementById('auth-form').style.display = 'block';
@@ -565,7 +713,7 @@
     function renderTable(containers) {
         const tbody = document.getElementById('tbody');
         if (!containers || containers.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="dim" style="text-align:center;padding:1.5rem;">No SCRT containers found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="dim" style="text-align:center;padding:1.5rem;">No SCRT containers found</td></tr>';
             return;
         }
         tbody.innerHTML = containers.map(c => {
@@ -579,13 +727,19 @@
             const shellBtn = c.State === 'running'
                 ? `<button class="shell" onclick="openShell('${esc(c.Name)}')">Shell</button>`
                 : '';
+            const runBtn = c.State === 'running'
+                ? `<button class="muted" onclick="openExec('${esc(c.Name)}')">Run</button>`
+                : '';
+            const ip = c.IP ? `<span class="dim">${esc(c.IP)}</span>` : `<span class="dim">&mdash;</span>`;
             return `<tr>
-                <td><strong>${esc(c.Name)}</strong></td>
+                <td><strong>${esc(c.Project || c.Name)}</strong></td>
+                <td>${ip}</td>
                 <td class="${stateClass}">${esc(c.State)}</td>
                 <td class="dim">${esc(c.Status)}</td>
                 <td class="dim">${esc(c.Image)}</td>
                 <td><div class="actions">
                     ${shellBtn}
+                    ${runBtn}
                     ${startBtn}
                     ${stopBtn}
                     <button class="muted" onclick="openFiles('${esc(c.Name)}')">Files</button>
@@ -706,6 +860,169 @@
         if (termWs) { termWs.close(); termWs = null; }
         if (term) { term.dispose(); term = null; }
         fitAddon = null;
+    }
+
+    /* ── Background exec ── */
+
+    function openExec(name) {
+        execContainer = name;
+        document.getElementById('exec-container-name').textContent = name;
+        document.getElementById('exec-cmd').value = '';
+        document.getElementById('exec-status').textContent = '';
+        document.getElementById('exec-status').className = '';
+        document.getElementById('exec-modal').classList.add('open');
+        setTimeout(() => document.getElementById('exec-cmd').focus(), 50);
+    }
+
+    function closeExec() {
+        document.getElementById('exec-modal').classList.remove('open');
+        execContainer = '';
+    }
+
+    function runExec() {
+        const cmd = document.getElementById('exec-cmd').value.trim();
+        if (!cmd) { setExecStatus('Enter a command.', true); return; }
+
+        setExecStatus('Submitting\u2026', false);
+        apiFetch('POST', '/api/v1/containers/' + encodeURIComponent(execContainer) + '/exec', { cmd })
+            .then(d => {
+                setExecStatus('Job started: ' + d.id, false);
+                loadJobs();
+                // Close modal after a moment so user can see the job ID
+                setTimeout(closeExec, 1200);
+            })
+            .catch(e => setExecStatus(e.message, true));
+    }
+
+    function setExecStatus(msg, isErr) {
+        const el = document.getElementById('exec-status');
+        el.textContent = msg;
+        el.className = isErr ? 'err' : '';
+    }
+
+    document.getElementById('exec-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeExec();
+    });
+
+    document.getElementById('exec-cmd').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') runExec();
+    });
+
+    /* ── Jobs ── */
+
+    function loadJobs() {
+        apiFetch('GET', '/api/v1/jobs')
+            .then(renderJobs)
+            .catch(() => {}); // silently ignore — jobs panel is non-critical
+    }
+
+    function renderJobs(jobs) {
+        const section = document.getElementById('jobs-section');
+        if (!jobs || jobs.length === 0) {
+            section.style.display = 'none';
+            scheduleJobRefresh(jobs);
+            return;
+        }
+        section.style.display = 'block';
+
+        const rows = jobs.map(j => {
+            const statusClass = j.status === 'running' ? 'job-running' : j.status === 'done' ? 'job-done' : 'job-error';
+            const statusLabel = j.status === 'running'
+                ? 'running\u2026'
+                : j.status === 'done' ? 'done (' + j.exit_code + ')' : 'error (' + j.exit_code + ')';
+            const killBtn = j.status === 'running'
+                ? `<button class="warn" onclick="killJob('${esc(j.id)}')">Kill</button>`
+                : '';
+            const clearBtn = j.status !== 'running'
+                ? `<button class="muted" onclick="clearJob('${esc(j.id)}')">Clear</button>`
+                : '';
+            const cmdShort = j.cmd.length > 45 ? j.cmd.slice(0, 42) + '\u2026' : j.cmd;
+            return `<tr>
+                <td class="dim" style="font-size:0.75rem;">${esc(j.id)}</td>
+                <td><strong>${esc(j.container)}</strong></td>
+                <td class="job-cmd dim" title="${esc(j.cmd)}">${esc(cmdShort)}</td>
+                <td class="${statusClass}">${statusLabel}</td>
+                <td class="dim" style="font-size:0.75rem;">${relTime(j.started_at)}</td>
+                <td><div class="actions">
+                    <button class="muted" onclick="openOutput('${esc(j.id)}')">Output</button>
+                    ${killBtn}${clearBtn}
+                </div></td>
+            </tr>`;
+        }).join('');
+
+        section.innerHTML = `
+            <div class="jobs-header">
+                <span class="jobs-header-label">Background Jobs</span>
+                <button class="muted" onclick="clearDoneJobs()">Clear Done</button>
+            </div>
+            <table>
+                <thead><tr>
+                    <th>ID</th><th>Project</th><th>Command</th>
+                    <th>Status</th><th>Started</th><th>Actions</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+
+        scheduleJobRefresh(jobs);
+    }
+
+    function scheduleJobRefresh(jobs) {
+        clearTimeout(jobTimer);
+        if (!jobs || jobs.length === 0) return;
+        const hasRunning = jobs.some(j => j.status === 'running');
+        jobTimer = setTimeout(loadJobs, hasRunning ? 3000 : 30000);
+    }
+
+    function killJob(id) {
+        apiFetch('DELETE', '/api/v1/jobs/' + id)
+            .then(loadJobs)
+            .catch(e => setStatus('Kill failed: ' + e.message, true));
+    }
+
+    function clearJob(id) {
+        apiFetch('DELETE', '/api/v1/jobs/' + id)
+            .then(loadJobs)
+            .catch(e => setStatus('Clear failed: ' + e.message, true));
+    }
+
+    function clearDoneJobs() {
+        apiFetch('GET', '/api/v1/jobs')
+            .then(jobs => {
+                if (!jobs) return;
+                const done = jobs.filter(j => j.status !== 'running');
+                return Promise.all(done.map(j => apiFetch('DELETE', '/api/v1/jobs/' + j.id)));
+            })
+            .then(loadJobs)
+            .catch(e => setStatus('Clear failed: ' + e.message, true));
+    }
+
+    /* ── Output overlay ── */
+
+    function openOutput(id) {
+        apiFetch('GET', '/api/v1/jobs/' + id)
+            .then(job => {
+                document.getElementById('output-job-label').textContent = id + ' (' + job.container + ')';
+                document.getElementById('output-pre').textContent = job.output || '(no output)';
+                document.getElementById('output-overlay').classList.add('open');
+            })
+            .catch(e => setStatus('Output failed: ' + e.message, true));
+    }
+
+    function closeOutput() {
+        document.getElementById('output-overlay').classList.remove('open');
+    }
+
+    document.getElementById('output-overlay').addEventListener('click', function(e) {
+        if (e.target === this) closeOutput();
+    });
+
+    /* ── Utilities (shared) ── */
+
+    function relTime(isoStr) {
+        const s = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
+        if (s < 60)   return s + 's ago';
+        if (s < 3600) return Math.floor(s / 60) + 'm ago';
+        return Math.floor(s / 3600) + 'h ago';
     }
 
     /* ── File transfer ── */

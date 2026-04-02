@@ -3,6 +3,7 @@ package api
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -214,6 +215,75 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.p.Backend.CopyTo(r.Context(), name, dstPath, &buf); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// execRequest is the body for POST /api/v1/containers/{name}/exec.
+type execRequest struct {
+	Cmd string `json:"cmd"`
+}
+
+// handleExecBackground starts a background exec job inside a container.
+// POST /api/v1/containers/{name}/exec   body: {"cmd":"<shell command>"}
+// Returns 202 Accepted with {"id":"<job-id>"}.
+func (s *Server) handleExecBackground(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if err := container.ValidateProjectName(name); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	var req execRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Cmd) == "" {
+		http.Error(w, `body must be {"cmd":"<command>"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Execute via sh -c so operators get full shell features (pipes, redirects, &&).
+	cmd := []string{"sh", "-c", req.Cmd}
+
+	jobCtx, cancel := context.WithCancel(context.Background())
+	job := s.jobs.create(name, req.Cmd, cancel)
+
+	go func() {
+		output, exitCode, execErr := s.p.Backend.ExecBackground(jobCtx, container.BackgroundExecParams{
+			Project: name,
+			Cmd:     cmd,
+		})
+		s.jobs.finish(job.ID, output, exitCode, execErr)
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(map[string]string{"id": job.ID})
+}
+
+// handleListJobs returns all background exec jobs (summary, no output).
+// GET /api/v1/jobs
+func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.jobs.list())
+}
+
+// handleGetJob returns a single job including its output.
+// GET /api/v1/jobs/{id}
+func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	job, ok := s.jobs.get(id)
+	if !ok {
+		writeError(w, http.StatusNotFound, errors.New("job not found"))
+		return
+	}
+	writeJSON(w, http.StatusOK, job)
+}
+
+// handleDeleteJob cancels a running job and removes it from the store.
+// DELETE /api/v1/jobs/{id}
+func (s *Server) handleDeleteJob(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !s.jobs.remove(id) {
+		writeError(w, http.StatusNotFound, errors.New("job not found"))
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
