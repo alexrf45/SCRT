@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.1.0](https://github.com/alexrf45/SCRT/compare/v4.0.0...v4.1.0) (2026-04-02)
+
+
+### Features
+
+* add scenario-specific Docker images with smoke tests ([a8865f4](https://github.com/alexrf45/SCRT/commit/a8865f46e5c97a3de11fecd2eb165d6110de147e))
+* **web:** container IP, background script runner, jobs panel ([5e63922](https://github.com/alexrf45/SCRT/commit/5e6392240d97ca2fafbbeda82786c4880aa78ae6))
+* **web:** start containers, TLS, file transfer, and themes ([52d20c1](https://github.com/alexrf45/SCRT/commit/52d20c1325a31d808d914b51768e6a3b7fc03d2d))
+
 ## [4.0.0](https://github.com/alexrf45/SCRT/compare/v3.2.0...v4.0.0) (2026-03-28)
 
 
