@@ -1,0 +1,173 @@
+# Dockerfile.ctf — CTF competition environment
+#
+# Covers the four main CTF categories:
+#   pwn     — pwntools, gdb + pwndbg, ROPgadget, one_gadget
+#   rev     — gdb, ltrace/strace, radare2, binwalk
+#   forensics — volatility3, foremost, exiftool, binwalk, strings
+#   crypto  — pycryptodome, gmpy2, SageMath (heavy; opt-in via build arg)
+#
+# Strategy: pspy and linpeas land from a downloader stage (static binaries).
+# All Python tooling is pip-installed for version currency. apt covers only
+# system-level debuggers and C-library-dependent packages.
+#
+# Build:  docker build -f Dockerfile.ctf -t scrt/ctf:latest .
+# Run:    docker run --rm -it scrt/ctf:latest
+
+# ============================================================================
+# Stage 1: downloader — static binaries for recon/priv-esc during CTF
+# ============================================================================
+FROM alpine:3.21 AS downloader
+
+RUN apk add --no-cache curl tar gzip
+
+WORKDIR /tools
+
+# pspy — monitor processes without root (useful in box compromises)
+ARG PSPY_VERSION=1.2.1
+RUN curl -sLo pspy \
+      "https://github.com/DominicBreuker/pspy/releases/download/v${PSPY_VERSION}/pspy64" && \
+    chmod +x pspy && \
+    curl -sLo pspys \
+      "https://github.com/DominicBreuker/pspy/releases/download/v${PSPY_VERSION}/pspy64s" && \
+    chmod +x pspys
+
+# linpeas — local privilege escalation enumeration
+RUN curl -sLo linpeas \
+      "https://github.com/peass-ng/PEASS-ng/releases/latest/download/linpeas.sh" && \
+    chmod +x linpeas
+
+# busybox static — useful when target box is stripped
+ARG BUSYBOX_VERSION=1.35.0
+RUN curl -sLo busybox \
+      "https://busybox.net/downloads/binaries/${BUSYBOX_VERSION}-x86_64-linux-musl/busybox" && \
+    chmod +x busybox
+
+# miniserve — serve files during CTF (flags, payloads, etc.)
+ARG MINISERVE_VERSION=0.28.0
+RUN curl -sLo miniserve \
+      "https://github.com/svenstaro/miniserve/releases/download/v${MINISERVE_VERSION}/miniserve-v${MINISERVE_VERSION}-x86_64-unknown-linux-musl" && \
+    chmod +x miniserve
+
+# ============================================================================
+# Stage 2: runtime
+# ============================================================================
+# kali-rolling: radare2, binwalk, foremost, steghide are all properly packaged
+# here but absent from Debian bookworm. CTF tooling benefits from the full
+# Kali security ecosystem.
+FROM kalilinux/kali-rolling
+
+LABEL project="scrt" scenario="ctf" author="fr3d"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ="America/New_York" \
+    PATH="/home/kali/.local/bin:/usr/local/bin:$PATH"
+
+# Bootstrap HTTPS mirror before installing packages
+RUN echo "deb http://kali.download/kali kali-rolling main contrib non-free non-free-firmware" > /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    echo "deb https://kali.download/kali kali-rolling main contrib non-free non-free-firmware" > /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      bat \
+      binutils \
+      binwalk \
+      curl \
+      fd-find \
+      file \
+      foremost \
+      fzf \
+      gdb \
+      git \
+      hexedit \
+      jq \
+      libffi-dev \
+      libssl-dev \
+      ltrace \
+      netcat-traditional \
+      p7zip-full \
+      python3 \
+      python3-dev \
+      python3-pip \
+      radare2 \
+      rlwrap \
+      ruby \
+      ruby-dev \
+      steghide \
+      strace \
+      sudo \
+      tmux \
+      tree \
+      unzip \
+      vim \
+      wget \
+      xxd \
+      zsh && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Python CTF tooling via pip — these release frequently; skip distro versions
+# pwntools: pwn category (exploits, rop chains, shellcode, GDB integration)
+# pycryptodome: crypto category (AES, RSA, ECC, hashes)
+# gmpy2: big-integer math for crypto (RSA attacks, DLP, etc.)
+# ropgadget: ROP chain gadget finder
+# volatility3: memory forensics
+# pwndbg installs separately below (needs gdb present)
+RUN pip3 install --no-cache-dir --break-system-packages \
+      pwntools \
+      pycryptodome \
+      gmpy2 \
+      ropgadget \
+      volatility3
+
+# pwndbg — GDB plugin; must run its installer after gdb is present
+RUN git clone --depth 1 https://github.com/pwndbg/pwndbg /opt/pwndbg && \
+    cd /opt/pwndbg && \
+    DEBIAN_FRONTEND=noninteractive ./setup.sh --yes 2>/dev/null || true
+
+# one_gadget — magic one-shot libc RCE gadget finder
+RUN gem install one_gadget --no-document 2>/dev/null || true
+
+RUN groupadd --gid 1000 kali && \
+    useradd --home-dir /home/kali --create-home --uid 1000 \
+      --gid 1000 --shell /usr/bin/zsh --skel /dev/null kali && \
+    chown -R kali:kali /home/kali && \
+    echo kali:kali | chpasswd && \
+    usermod -aG sudo kali && \
+    echo 'kali  ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/kali
+
+# Static binaries from downloader stage
+COPY --from=downloader /tools/ /usr/local/bin/
+
+WORKDIR /home/kali/
+USER kali
+
+RUN mkdir -p \
+      "$HOME/.config" \
+      "$HOME/.local/bin" \
+      "$HOME/.logs" \
+      "$HOME/.tools" \
+      "$HOME/.zsh" \
+      "$HOME/.proxychains" && \
+    git clone --depth 1 https://github.com/tmux-plugins/tpm \
+      "$HOME/.tmux/plugins/tpm" && \
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
+    git clone --depth 1 https://github.com/zsh-users/zsh-autosuggestions \
+      "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" && \
+    git clone --depth 1 https://github.com/zsh-users/zsh-syntax-highlighting \
+      "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting" && \
+    curl -sS https://starship.rs/install.sh | sh -s -- --yes --bin-dir "$HOME/.local/bin" && \
+    ln -sf "$(command -v fdfind 2>/dev/null || command -v fd 2>/dev/null)" \
+      "$HOME/.local/bin/fd" 2>/dev/null || true
+
+COPY --chown=kali:kali resources/zsh/.zshrc                          /home/kali/.zshrc
+COPY --chown=kali:kali resources/zsh/.zprofile                       /home/kali/.zprofile
+COPY --chown=kali:kali resources/zsh/aliases                         /home/kali/.zsh/aliases
+COPY --chown=kali:kali resources/zsh/functions.sh                    /home/kali/.zsh/functions.sh
+COPY --chown=kali:kali resources/zsh/kali.zsh-theme                  /home/kali/.oh-my-zsh/custom/themes/kali.zsh-theme
+COPY --chown=kali:kali resources/zsh/history                         /home/kali/.history
+COPY --chown=kali:kali resources/starship.toml                       /home/kali/.config/starship.toml
+COPY --chown=kali:kali resources/tmux.conf                           /home/kali/.tmux.conf
+COPY --chown=kali:kali resources/proxychains.conf                    /home/kali/.proxychains/proxychains.conf
+COPY --chown=kali:kali resources/shell-upgrade.sh                    /home/kali/.tools/shell-upgrade.sh
+
+CMD ["/usr/bin/zsh"]
