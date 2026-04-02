@@ -572,13 +572,14 @@ func newVersionCmd() *cobra.Command {
 // ---------------------------------------------------------------------------
 
 func newServeCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config) *cobra.Command {
-	var addr, token string
+	var addr, token, certFile, keyFile string
 
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Start the SCRT HTTP API and web UI",
 		Long: `Start an HTTP server exposing the SCRT REST API and a status dashboard.
-Useful for remote lab access. Protect with a reverse proxy (Caddy, nginx) for TLS.`,
+Useful for remote lab access. For production deployments, use a reverse proxy
+(Caddy, nginx) for TLS. For direct TLS without a proxy, supply --cert and --key.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			b, err := backend.New(ctx, logger)
@@ -593,19 +594,27 @@ Useful for remote lab access. Protect with a reverse proxy (Caddy, nginx) for TL
 			}
 
 			srv := api.New(api.ServeParams{
-				Addr:    addr,
-				Token:   tok,
-				Backend: b,
-				Config:  cfg,
+				Addr:     addr,
+				Token:    tok,
+				Backend:  b,
+				Config:   cfg,
+				CertFile: certFile,
+				KeyFile:  keyFile,
 			})
 
-			printInfo("SCRT API listening on " + addr)
+			if certFile != "" && keyFile != "" {
+				printInfo("SCRT API (TLS) listening on " + addr)
+			} else {
+				printInfo("SCRT API listening on " + addr)
+			}
 			return srv.Start(ctx)
 		},
 	}
 
 	cmd.Flags().StringVar(&addr, "addr", ":8080", "Listen address (host:port)")
 	cmd.Flags().StringVar(&token, "token", "", "Bearer token (overrides SCRT_TOKEN env var)")
+	cmd.Flags().StringVar(&certFile, "cert", "", "TLS certificate file (PEM); enables HTTPS when set with --key")
+	cmd.Flags().StringVar(&keyFile, "key", "", "TLS private key file (PEM); enables HTTPS when set with --cert")
 	return cmd
 }
 

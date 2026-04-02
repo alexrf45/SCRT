@@ -151,6 +151,42 @@ func (m *Manager) Enter(ctx context.Context, project, shell string) error {
 	return nil
 }
 
+// StartExisting restarts a stopped container via the Docker SDK.
+// It is a no-op if the container is already running.
+func (m *Manager) StartExisting(ctx context.Context, project string) error {
+	exists, running := m.containerState(ctx, project)
+	if !exists {
+		return fmt.Errorf("%w: %s", ErrContainerNotFound, project)
+	}
+	if running {
+		return nil // already running; not an error
+	}
+	if err := m.client.ContainerStart(ctx, project, containertypes.StartOptions{}); err != nil {
+		return fmt.Errorf("start container %s: %w", project, err)
+	}
+	return nil
+}
+
+// CopyFrom copies a file or directory from the container as a tar stream.
+// The caller must close the returned ReadCloser.
+func (m *Manager) CopyFrom(ctx context.Context, project, srcPath string) (io.ReadCloser, error) {
+	reader, _, err := m.client.CopyFromContainer(ctx, project, srcPath)
+	if err != nil {
+		return nil, fmt.Errorf("copy from container %s:%s: %w", project, srcPath, err)
+	}
+	return reader, nil
+}
+
+// CopyTo copies a tar-encoded stream into the container at dstPath.
+// The content reader must contain a valid tar archive; the Docker daemon
+// extracts it into dstPath inside the container.
+func (m *Manager) CopyTo(ctx context.Context, project, dstPath string, content io.Reader) error {
+	if err := m.client.CopyToContainer(ctx, project, dstPath, content, containertypes.CopyToContainerOptions{}); err != nil {
+		return fmt.Errorf("copy to container %s:%s: %w", project, dstPath, err)
+	}
+	return nil
+}
+
 // Stop stops a running container via the Docker SDK.
 func (m *Manager) Stop(ctx context.Context, project string) error {
 	exists, running := m.containerState(ctx, project)
