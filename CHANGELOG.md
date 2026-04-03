@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.2.0](https://github.com/alexrf45/SCRT/compare/v4.1.1...v4.2.0) (2026-04-03)
+
+
+### Features
+
+* **base:** reduce image size ~210-280 MB; add smoke-base test ([c6dc724](https://github.com/alexrf45/SCRT/commit/c6dc72412e730702c00c9ff5e77ae49e8dcee0f6))
+* **base:** reduce image size ~210-280 MB; add smoke-base test ([75e68c8](https://github.com/alexrf45/SCRT/commit/75e68c8f54681e760843d413d778f2806a4c38d4))
+
 ## [4.1.1](https://github.com/alexrf45/SCRT/compare/v4.1.0...v4.1.1) (2026-04-03)
 
 
