@@ -16,7 +16,7 @@ TEST_DIR   := $(CURDIR)/tests
 .DEFAULT_GOAL := help
 
 .PHONY: build-scrt build-base build-web build-ad build-ctf build-all \
-        smoke-web smoke-ad smoke-ctf test-all test-scrt \
+        smoke-base smoke-web smoke-ad smoke-ctf test-all test-scrt \
         lint ci images clean-images clean help
 
 # ============================================================================
@@ -77,6 +77,13 @@ build-all:
 # Images are built first if the tags don't already exist.
 # ============================================================================
 
+## smoke-base:   Tool presence check — base image
+smoke-base: build-base
+	@printf '==> [base] smoke test\n'
+	@docker run --rm \
+		-v "$(TEST_DIR):/tests:ro" \
+		$(BASE_IMAGE) sh /tests/smoke-base.sh
+
 ## smoke-web:    Tool presence check — web image
 smoke-web: build-web
 	@printf '==> [web] smoke test\n'
@@ -98,8 +105,8 @@ smoke-ctf: build-ctf
 		-v "$(TEST_DIR):/tests:ro" \
 		$(CTF_IMAGE) sh /tests/smoke-ctf.sh
 
-## test-all:     Run smoke tests for all three scenario images
-test-all: smoke-web smoke-ad smoke-ctf
+## test-all:     Run smoke tests for all four images (base + scenarios)
+test-all: smoke-base smoke-web smoke-ad smoke-ctf
 
 # ============================================================================
 # scrt integration — verify the binary starts and sees Docker

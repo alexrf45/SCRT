@@ -13,9 +13,10 @@ cp "$TOOL_DIR/kerbrute" "$HOME/.local/bin/kerbrute"
 chmod +x "$HOME/.local/bin/kerbrute"
 cp "$TOOL_DIR/smbserver.py" "$HOME/.tools/smbserver.py"
 cp "$TOOL_DIR/zsh/history" "$HOME/.history"
-cp -r "$TOOL_DIR/mozilla" "$HOME/.mozilla"
 cp "$TOOL_DIR/starship.toml" "$HOME/.config/starship.toml"
 
+
+curl -sS https://starship.rs/install.sh | sh -s -- --yes --bin-dir "$HOME/.local/bin"
 
 git clone --depth 1 https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
 

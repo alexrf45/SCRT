@@ -34,7 +34,7 @@ up() {
 virtual_env() {
   mkdir $1 &&
     cd $1 &&
-    virtualenv .venv &&
+    python3 -m venv .venv &&
     source .venv/bin/activate
 }
 
