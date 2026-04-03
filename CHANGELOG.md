@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.1.1](https://github.com/alexrf45/SCRT/compare/v4.1.0...v4.1.1) (2026-04-03)
+
+
+### Bug Fixes
+
+* **docker:** add apt-get update to 0-base.sh; replace web apt deps wi… ([#51](https://github.com/alexrf45/SCRT/issues/51)) ([b3113c9](https://github.com/alexrf45/SCRT/commit/b3113c9f10b97cd6913d9743a20609527fa75b05))
+* **docker:** add apt-get update to 0-base.sh; replace web apt deps with direct downloads ([1fdc6e7](https://github.com/alexrf45/SCRT/commit/1fdc6e7f0adef56411b660bffd7ffb04b7198173))
+
 ## [4.1.0](https://github.com/alexrf45/SCRT/compare/v4.0.0...v4.1.0) (2026-04-02)
 
 
