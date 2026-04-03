@@ -109,6 +109,8 @@ osint_tools() {
     vinetto
 }
 
+sudo apt-get update
+
 base_system
 base_desktop
 base_languages

@@ -7,16 +7,47 @@ miniserve_latest_url() {
 }
 
 web() {
-  sudo apt-get install -y \
-    --no-install-recommends \
-    default-mysql-client \
-    exiftool \
-    ffuf \
-    hurl \
-    postgresql-client \
-    sqlmap \
-    sqsh \
-    whatweb
+  (
+    cd "$HOME/.tools"
+
+    # ffuf — web fuzzer
+    wget -q -O ffuf.tgz \
+      "https://github.com/ffuf/ffuf/releases/download/v2.1.0/ffuf_2.1.0_linux_amd64.tar.gz"
+    tar -xzf ffuf.tgz ffuf
+    mv ffuf "$HOME/.local/bin/ffuf"
+    chmod +x "$HOME/.local/bin/ffuf"
+    rm ffuf.tgz
+
+    # hurl — HTTP runner
+    wget -q -O hurl.tgz \
+      "https://github.com/Orange-OpenSource/hurl/releases/download/7.1.0/hurl-7.1.0-x86_64-unknown-linux-gnu.tar.gz"
+    tar -xzf hurl.tgz
+    mv hurl-*/bin/hurl "$HOME/.local/bin/hurl"
+    chmod +x "$HOME/.local/bin/hurl"
+    rm -rf hurl-* hurl.tgz
+
+    # sqlmap — SQL injection testing
+    git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git sqlmap
+    chmod +x sqlmap/sqlmap.py
+    ln -sf "$HOME/.tools/sqlmap/sqlmap.py" "$HOME/.local/bin/sqlmap"
+
+    # whatweb — web fingerprinting
+    git clone --depth 1 https://github.com/urbanadventurer/WhatWeb.git whatweb
+    chmod +x whatweb/whatweb
+    ln -sf "$HOME/.tools/whatweb/whatweb" "$HOME/.local/bin/whatweb"
+
+    # exiftool — metadata extraction (Perl; FindBin resolves lib/ from symlink target)
+    wget -q -O exiftool.tgz \
+      "https://github.com/exiftool/exiftool/archive/refs/tags/13.54.tar.gz"
+    tar -xzf exiftool.tgz
+    mv exiftool-* exiftool
+    chmod +x exiftool/exiftool
+    ln -sf "$HOME/.tools/exiftool/exiftool" "$HOME/.local/bin/exiftool"
+    rm exiftool.tgz
+  )
+
+  # MySQL and PostgreSQL CLI clients — drop-in replacements for mysql/psql
+  pip3 install --no-cache-dir --break-system-packages mycli pgcli
 }
 
 web_server() {
