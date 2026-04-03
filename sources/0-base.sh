@@ -4,37 +4,16 @@ set -euo pipefail
 base_system() {
   sudo apt-get install \
     -y --no-install-recommends \
-    cmake \
-    djvulibre-bin \
     file \
     iputils-ping \
-    libpcap-dev \
-    man-db \
-    nfs-common \
-    openssh-server \
-    rpcbind \
-    supervisor
-}
-
-base_desktop() {
-  sudo apt-get install \
-    -y --no-install-recommends \
-    autocutsel \
-    dbus-x11 \
-    feh \
-    firefox-esr \
-    kali-themes \
-    mousepad \
-    x11-utils \
-    xpdf
+    libpcap0.8
 }
 
 base_languages() {
   sudo apt-get install \
     -y --no-install-recommends \
-    pipx \
     python3-pip \
-    python3-virtualenv \
+    python3-venv \
     ruby \
     ruby-dev \
     upx-ucl
@@ -55,11 +34,9 @@ main_tools() {
     -y --no-install-recommends \
     aria2 \
     bat \
-    fzf \
-    jq \
-    mkcert \
     fastfetch \
-    starship
+    fzf \
+    jq
 }
 
 network() {
@@ -112,7 +89,6 @@ osint_tools() {
 sudo apt-get update
 
 base_system
-base_desktop
 base_languages
 base_tools
 main_tools

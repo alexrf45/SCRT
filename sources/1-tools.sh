@@ -55,6 +55,13 @@ web_server() {
   chmod +x "$HOME/.local/bin/miniserve"
 }
 
+extras() {
+  # mkcert — local TLS cert generator (used by cert-gen() in functions.sh)
+  wget -q -O "$HOME/.local/bin/mkcert" \
+    "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64"
+  chmod +x "$HOME/.local/bin/mkcert"
+}
+
 password() {
   sudo apt-get install -y \
     --no-install-recommends \
@@ -125,6 +132,7 @@ sudo apt-get update
 
 web
 web_server
+extras
 password
 payload
 active_directory
