@@ -16,11 +16,9 @@ Whether it's recon, exploitation, log analysis, or tool testing, `scrt` gives yo
 
 ## Features
 
-- Lightweight Kali base image with opinionated tool selection
+- Lightweight Kali base image with opinionated tool selection (~210-280 MB smaller since v4.2.0)
 - Persistent containers, volumes, and workspaces — pick up where you left off
 - Custom Starship prompt with pre-configured Tmux status line
-- GUI app support (Mousepad, SQLiteViewer) via X11 forwarding
-- Firefox pre-configured with bookmarks, FoxyProxy, and Cookie Modifier
 - Built-in command history with `fzf` for fast filtering (`Ctrl+r`)
 - **Remote lab mode** — `scrt serve` exposes a REST API and web status dashboard
 - **Environment-agnostic** — auto-detects Docker, containerd, or runc at startup
@@ -218,11 +216,11 @@ alias udp-scan='sudo nmap -sU --top-ports 10 $IP -v > udp.scan.txt'
 alias stealth-scan='sudo nmap --data-length 6 -T3 -A -ttl 64 -p- $IP > stealth-scan.txt'
 alias proxy='proxychains'
 alias serve='sudo python3 -m http.server 8888'
-alias notepad='mousepad notes.md > /dev/null 2>&1 &'
+alias notepad='nvim notes.md'
 
 # python3
 alias py-virt='python3 -m venv .venv && source .venv/bin/activate'
 alias freeze='pip freeze > requirements.txt'
 alias py-install='pip install -r requirements.txt'
-alias py-list='pipx list | grep package'
+alias py-list='pip3 list'
 ```
