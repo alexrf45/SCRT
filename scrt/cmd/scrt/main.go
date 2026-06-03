@@ -281,10 +281,14 @@ func newDestroyCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Conf
 
 			// Confirm destruction
 			if !force {
-				fmt.Printf("Destroy container '%s' and all project data? (y/N): ", projectName)
-				var response string
-				fmt.Scanln(&response)
-				if response != "y" && response != "Y" {
+				confirmed, err := tui.Confirm(
+					fmt.Sprintf("Destroy container %q and all project data?", projectName),
+					false,
+				)
+				if err != nil {
+					return err
+				}
+				if !confirmed {
 					logger.Info("operation cancelled")
 					return nil
 				}
@@ -515,7 +519,7 @@ func newConfigCmd(logger *charmlog.Logger, cfg config.Config) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Show and manage configuration",
-		Long:  "Display current configuration. Use 'config edit' to modify it.",
+		Long:  "Display current configuration. Use 'config init' for a guided setup or 'config edit' to edit the file directly.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			printConfig(cfg)
@@ -523,8 +527,47 @@ func newConfigCmd(logger *charmlog.Logger, cfg config.Config) *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(newConfigEditCmd(logger))
+	cmd.AddCommand(newConfigEditCmd(logger), newConfigInitCmd())
 	return cmd
+}
+
+// newConfigInitCmd runs an interactive wizard to create or update the config
+// file. It seeds the wizard from the existing file (or defaults), validates the
+// result, and writes it to disk.
+func newConfigInitCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "init",
+		Short: "Interactively create or update the config",
+		Long:  "Walk through SCRT settings in an interactive form and save the result to the config file.",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Load() returns Default() when no file exists, so the wizard is
+			// always prefilled with sensible starting values.
+			start, err := config.Load()
+			if err != nil {
+				return err
+			}
+
+			next, err := tui.RunConfigWizard(start)
+			if err != nil {
+				if errors.Is(err, tui.ErrWizardAborted) {
+					printInfo("Config setup cancelled.")
+					return nil
+				}
+				return err
+			}
+
+			if err := config.Validate(next); err != nil {
+				return err
+			}
+			if err := config.Save(next); err != nil {
+				return err
+			}
+
+			printSuccess("Configuration saved to " + config.ConfigPath())
+			return nil
+		},
+	}
 }
 
 // printConfig renders the current configuration with lipgloss styling.
