@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.3.0](https://github.com/alexrf45/SCRT/compare/v4.2.0...v4.3.0) (2026-06-03)
+
+
+### Features
+
+* **cli:** migrate to charm v2 stack and add fang CLI polish ([83e6424](https://github.com/alexrf45/SCRT/commit/83e64241245b5c68a4f7593fe2905155aee878d3))
+* **tui:** add container search/filter and live auto-refresh ([b3f7aff](https://github.com/alexrf45/SCRT/commit/b3f7aff94831edc28b6deac5a2c9bfbaa6d19038))
+* **tui:** add huh prompts, pull picker, and config wizard ([de06aa3](https://github.com/alexrf45/SCRT/commit/de06aa36978a1d77ddaa69c0ae0a9698a81af18f))
+* **tui:** add in-browser log viewer and file copy ([2e9abdd](https://github.com/alexrf45/SCRT/commit/2e9abdde55f0cfaacde7967d97670cf8bed3fd76))
+
 ## [4.2.0](https://github.com/alexrf45/SCRT/compare/v4.1.1...v4.2.0) (2026-04-03)
 
 
