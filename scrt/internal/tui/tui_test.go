@@ -1,6 +1,45 @@
 package tui
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/alexrf45/scrt/internal/container"
+)
+
+func TestFilterContainers(t *testing.T) {
+	sample := []container.Info{
+		{Name: "web-recon", Image: "fonalex45/scrt:latest", State: "running"},
+		{Name: "db-fuzz", Image: "fonalex45/scrt:dev", State: "exited"},
+		{Name: "proxy", Image: "alpine:3.20", State: "running"},
+	}
+
+	tests := []struct {
+		name      string
+		query     string
+		wantNames []string
+	}{
+		{name: "empty query returns all", query: "", wantNames: []string{"web-recon", "db-fuzz", "proxy"}},
+		{name: "match by name", query: "recon", wantNames: []string{"web-recon"}},
+		{name: "match by image", query: "alpine", wantNames: []string{"proxy"}},
+		{name: "match by state", query: "exited", wantNames: []string{"db-fuzz"}},
+		{name: "case-insensitive", query: "RECON", wantNames: []string{"web-recon"}},
+		{name: "whitespace trimmed", query: "  proxy  ", wantNames: []string{"proxy"}},
+		{name: "no match", query: "nonexistent", wantNames: []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterContainers(sample, tt.query)
+			if len(got) != len(tt.wantNames) {
+				t.Fatalf("filterContainers(%q) returned %d items, want %d", tt.query, len(got), len(tt.wantNames))
+			}
+			for i, want := range tt.wantNames {
+				if got[i].Name != want {
+					t.Errorf("result[%d].Name = %q, want %q", i, got[i].Name, want)
+				}
+			}
+		})
+	}
+}
 
 func TestStripImageTag(t *testing.T) {
 	tests := []struct {
