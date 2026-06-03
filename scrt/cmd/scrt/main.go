@@ -10,8 +10,10 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 
+	"charm.land/fang/v2"
 	"github.com/alexrf45/scrt/internal/api"
 	"github.com/alexrf45/scrt/internal/backend"
 	"github.com/alexrf45/scrt/internal/config"
@@ -43,6 +45,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	root := buildRoot(ctx, logger, cfg)
+
+	// fang wraps the cobra root with styled help/errors, a --version flag,
+	// manpage generation, and shell completion. fang installs no signal handler
+	// by default, so the signal.NotifyContext created above stays in control.
+	if err := fang.Execute(ctx, root, fang.WithVersion(version)); err != nil {
+		os.Exit(1)
+	}
+}
+
+// buildRoot assembles the root command with every subcommand attached. It is a
+// seam shared by main() and the command tests.
+func buildRoot(ctx context.Context, logger *charmlog.Logger, cfg config.Config) *cobra.Command {
 	root := newRootCmd()
 	root.AddCommand(
 		newStartCmd(ctx, logger, cfg),
@@ -57,21 +72,52 @@ func main() {
 		newConfigCmd(logger, cfg),
 		newVersionCmd(),
 	)
-
-	if err := root.Execute(); err != nil {
-		os.Exit(1)
-	}
+	return root
 }
 
 func newRootCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "scrt",
 		Short: "Security Research Container Toolkit",
-		Long: `SCRT — a disposable, flexible, and repeatable container
-environment for security researchers, analysts, and enthusiasts.
+		Long: `SCRT — a disposable, repeatable container environment for security research.
 
-Manage Docker-based security research environments with project
-isolation, standardized tooling, and persistent workspaces.`,
+Manage Docker-based research environments with project isolation,
+standardized tooling, and persistent workspaces.`,
+	}
+}
+
+// completeContainerNames returns a cobra completion function that suggests
+// existing SCRT container names for the first positional argument. It backs the
+// shell tab-completion of commands that act on an existing container (enter,
+// stop, destroy). Errors are swallowed: completion must never block the shell.
+func completeContainerNames(ctx context.Context, logger *charmlog.Logger) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	return func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) != 0 {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		mgr, err := backend.New(ctx, logger)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		defer mgr.Close()
+
+		infos, err := mgr.List(ctx)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		names := make([]string, 0, len(infos))
+		for _, info := range infos {
+			name := info.Project
+			if name == "" {
+				name = info.Name
+			}
+			if toComplete == "" || strings.HasPrefix(name, toComplete) {
+				names = append(names, name)
+			}
+		}
+		return names, cobra.ShellCompDirectiveNoFileComp
 	}
 }
 
@@ -145,10 +191,11 @@ func newStartCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config
 
 func newEnterCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config) *cobra.Command {
 	return &cobra.Command{
-		Use:   "enter <project>",
-		Short: "Enter a running container",
-		Long:  "Open an interactive shell in an existing SCRT container. Starts it if stopped.",
-		Args:  cobra.ExactArgs(1),
+		Use:               "enter <project>",
+		Short:             "Enter a running container",
+		Long:              "Open an interactive shell in an existing SCRT container. Starts it if stopped.",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeContainerNames(ctx, logger),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectName := args[0]
 
@@ -174,9 +221,10 @@ func newEnterCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config
 
 func newStopCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 	return &cobra.Command{
-		Use:   "stop <project>",
-		Short: "Stop a running container",
-		Args:  cobra.ExactArgs(1),
+		Use:               "stop <project>",
+		Short:             "Stop a running container",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeContainerNames(ctx, logger),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectName := args[0]
 
@@ -213,10 +261,11 @@ func newDestroyCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Conf
 	var force bool
 
 	cmd := &cobra.Command{
-		Use:   "destroy <project>",
-		Short: "Destroy a container and its data",
-		Long:  "Remove the container and optionally delete the project directory.",
-		Args:  cobra.ExactArgs(1),
+		Use:               "destroy <project>",
+		Short:             "Destroy a container and its data",
+		Long:              "Remove the container and optionally delete the project directory.",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeContainerNames(ctx, logger),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectName := args[0]
 
@@ -373,10 +422,6 @@ func newImportCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			file := args[0]
 
-			if repo == "" {
-				return fmt.Errorf("--repo is required (e.g. fonalex45/scrt)")
-			}
-
 			mgr, err := backend.New(ctx, logger)
 			if err != nil {
 				return err
@@ -404,6 +449,7 @@ func newImportCmd(ctx context.Context, logger *charmlog.Logger) *cobra.Command {
 
 	cmd.Flags().StringVar(&repo, "repo", "", "Repository name (e.g. fonalex45/scrt)")
 	cmd.Flags().StringVar(&tag, "tag", "imported", "Image tag")
+	_ = cmd.MarkFlagRequired("repo")
 	return cmd
 }
 

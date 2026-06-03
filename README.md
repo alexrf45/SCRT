@@ -30,7 +30,7 @@ Recon, exploitation, log analysis, tool testing: each starts from the same image
 ### Dependencies
 
 - Docker (or containerd / runc for daemon-less operation)
-- Linux x86-64 or arm64 (prebuilt binary) — or Go 1.24+ to build from source
+- Linux x86-64 or arm64 (prebuilt binary) — or Go 1.25+ to build from source
 
 ### Install the CLI binary
 
