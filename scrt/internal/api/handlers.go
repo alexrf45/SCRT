@@ -1,8 +1,6 @@
 package api
 
 import (
-	"archive/tar"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/alexrf45/scrt/internal/config"
@@ -142,7 +139,7 @@ func (s *Server) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	srcPath := r.URL.Query().Get("path")
-	if err := validateTransferPath(srcPath); err != nil {
+	if err := container.ValidateTransferPath(srcPath); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -171,7 +168,7 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dstPath := r.URL.Query().Get("path")
-	if err := validateTransferPath(dstPath); err != nil {
+	if err := container.ValidateTransferPath(dstPath); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -197,23 +194,13 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Docker's CopyToContainer expects a tar archive.
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
-	if err := tw.WriteHeader(&tar.Header{
-		Name: filepath.Base(header.Filename),
-		Mode: 0o644,
-		Size: int64(len(data)),
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Errorf("build tar header: %w", err))
+	buf, err := container.TarFile(header.Filename, data)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	if _, err := tw.Write(data); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Errorf("write tar data: %w", err))
-		return
-	}
-	tw.Close()
 
-	if err := s.p.Backend.CopyTo(r.Context(), name, dstPath, &buf); err != nil {
+	if err := s.p.Backend.CopyTo(r.Context(), name, dstPath, buf); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -287,19 +274,6 @@ func (s *Server) handleDeleteJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// validateTransferPath rejects empty paths and path traversal attempts.
-func validateTransferPath(p string) error {
-	if p == "" {
-		return errors.New("path query parameter is required")
-	}
-	for _, part := range strings.Split(p, "/") {
-		if part == ".." {
-			return errors.New("path may not contain '..' components")
-		}
-	}
-	return nil
 }
 
 // writeJSON encodes v as JSON and writes it with the given status code.

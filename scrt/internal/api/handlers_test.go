@@ -523,35 +523,35 @@ func TestHandleDownloadFile(t *testing.T) {
 		wantFilename string
 	}{
 		{
-			name:      "unauthorized",
-			project:   "myproj",
-			queryPath: "/tmp/flag.txt",
-			backend:   &mockBackend{},
-			authed:    false,
+			name:       "unauthorized",
+			project:    "myproj",
+			queryPath:  "/tmp/flag.txt",
+			backend:    &mockBackend{},
+			authed:     false,
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name:      "invalid project name",
-			project:   "bad.name",
-			queryPath: "/tmp/flag.txt",
-			backend:   &mockBackend{},
-			authed:    true,
+			name:       "invalid project name",
+			project:    "bad.name",
+			queryPath:  "/tmp/flag.txt",
+			backend:    &mockBackend{},
+			authed:     true,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:      "missing path parameter",
-			project:   "myproj",
-			queryPath: "",
-			backend:   &mockBackend{},
-			authed:    true,
+			name:       "missing path parameter",
+			project:    "myproj",
+			queryPath:  "",
+			backend:    &mockBackend{},
+			authed:     true,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:      "path traversal rejected",
-			project:   "myproj",
-			queryPath: "/tmp/../etc/passwd",
-			backend:   &mockBackend{},
-			authed:    true,
+			name:       "path traversal rejected",
+			project:    "myproj",
+			queryPath:  "/tmp/../etc/passwd",
+			backend:    &mockBackend{},
+			authed:     true,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
@@ -626,35 +626,35 @@ func TestHandleUploadFile(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:      "unauthorized",
-			project:   "myproj",
-			queryPath: "/tmp/",
-			backend:   &mockBackend{},
-			authed:    false,
+			name:       "unauthorized",
+			project:    "myproj",
+			queryPath:  "/tmp/",
+			backend:    &mockBackend{},
+			authed:     false,
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name:      "invalid project name",
-			project:   "bad.name",
-			queryPath: "/tmp/",
-			backend:   &mockBackend{},
-			authed:    true,
+			name:       "invalid project name",
+			project:    "bad.name",
+			queryPath:  "/tmp/",
+			backend:    &mockBackend{},
+			authed:     true,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:      "missing path parameter",
-			project:   "myproj",
-			queryPath: "",
-			backend:   &mockBackend{},
-			authed:    true,
+			name:       "missing path parameter",
+			project:    "myproj",
+			queryPath:  "",
+			backend:    &mockBackend{},
+			authed:     true,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:      "path traversal rejected",
-			project:   "myproj",
-			queryPath: "/tmp/../etc/",
-			backend:   &mockBackend{},
-			authed:    true,
+			name:       "path traversal rejected",
+			project:    "myproj",
+			queryPath:  "/tmp/../etc/",
+			backend:    &mockBackend{},
+			authed:     true,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
@@ -874,34 +874,6 @@ func TestHandleDeleteJob(t *testing.T) {
 			w := do(t, srv, http.MethodDelete, "/api/v1/jobs/"+tt.id, nil, tt.authed)
 			if w.Code != tt.wantStatus {
 				t.Errorf("status = %d, want %d", w.Code, tt.wantStatus)
-			}
-		})
-	}
-}
-
-func TestValidateTransferPath(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		path    string
-		wantErr bool
-	}{
-		{"/tmp/flag.txt", false},
-		{"/tmp/", false},
-		{"/", false},
-		{"relative/path", false},
-		{"", true},
-		{"/tmp/../etc/passwd", true},
-		{"../etc/passwd", true},
-		{"..", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.path, func(t *testing.T) {
-			t.Parallel()
-			err := validateTransferPath(tt.path)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("validateTransferPath(%q) err = %v, wantErr = %v", tt.path, err, tt.wantErr)
 			}
 		})
 	}

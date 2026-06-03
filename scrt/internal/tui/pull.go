@@ -1,11 +1,11 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
+	"charm.land/huh/v2"
 )
 
 // RunPullDialog shows an interactive tag-selection dialog and returns the
@@ -19,69 +19,43 @@ func RunPullDialog(baseImage string) (string, error) {
 }
 
 func runPullDialog(baseImage string) (string, error) {
-	app := tview.NewApplication()
-	result := ""
-
 	// Strip any existing tag so we build a clean repo:tag reference.
 	repo := stripImageTag(baseImage)
 
-	// Track the currently selected tag option.
-	currentTag := "latest"
+	tag := "latest"
+	sel := huh.NewSelect[string]().
+		Title(fmt.Sprintf("Pull %s — choose a tag", repo)).
+		Options(huh.NewOptions("latest", "dev", "custom...")...).
+		Value(&tag)
 
-	form := tview.NewForm()
-	form.SetBorder(true)
-	form.SetTitle(fmt.Sprintf(" Pull: %s ", repo))
-	form.SetTitleAlign(tview.AlignLeft)
-
-	customField := tview.NewInputField().
-		SetLabel("Custom Tag: ").
-		SetFieldWidth(20)
-
-	form.AddDropDown("Tag", []string{"latest", "dev", "custom..."}, 0, func(option string, _ int) {
-		currentTag = option
-	})
-	form.AddFormItem(customField)
-
-	form.AddButton("Pull", func() {
-		tag := currentTag
-		if tag == "custom..." {
-			tag = customField.GetText()
-			if tag == "" {
-				return // require a custom tag value before proceeding
-			}
+	if err := sel.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return "", nil
 		}
-		result = repo + ":" + tag
-		app.Stop()
-	})
-
-	form.AddButton("Cancel", func() {
-		app.Stop()
-	})
-
-	// Allow Escape to cancel.
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEscape {
-			app.Stop()
-			return nil
-		}
-		return event
-	})
-
-	// Center the form in the terminal.
-	center := tview.NewFlex().
-		AddItem(nil, 0, 1, false).
-		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
-			AddItem(nil, 0, 1, false).
-			AddItem(form, 14, 0, true).
-			AddItem(nil, 0, 1, false),
-			55, 0, true).
-		AddItem(nil, 0, 1, false)
-
-	if err := app.SetRoot(center, true).Run(); err != nil {
 		return "", fmt.Errorf("pull dialog: %w", err)
 	}
 
-	return result, nil
+	if tag == "custom..." {
+		custom := ""
+		in := huh.NewInput().
+			Title("Custom tag").
+			Value(&custom).
+			Validate(func(s string) error {
+				if strings.TrimSpace(s) == "" {
+					return errors.New("tag must not be empty")
+				}
+				return nil
+			})
+		if err := in.Run(); err != nil {
+			if errors.Is(err, huh.ErrUserAborted) {
+				return "", nil
+			}
+			return "", fmt.Errorf("pull dialog: %w", err)
+		}
+		tag = strings.TrimSpace(custom)
+	}
+
+	return repo + ":" + tag, nil
 }
 
 // stripImageTag returns the image reference without its tag.

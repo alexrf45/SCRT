@@ -3,6 +3,7 @@ package tui
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -21,12 +22,19 @@ type ListParams struct {
 	OnDestroy  func(name string) error
 	OnBackup   func(name string) error
 	OnRefresh  func() ([]container.Info, error)
+	// OnLogs returns a plain-text log stream for the named container.
+	OnLogs func(name string) (io.ReadCloser, error)
+	// OnCopyTo uploads a host file into the container at dstPath.
+	OnCopyTo func(name, hostPath, dstPath string) error
+	// OnCopyFrom downloads srcPath from the container into a host directory.
+	OnCopyFrom func(name, srcPath, destDir string) error
 }
 
 const (
-	listHeaderRow    = 0
-	listDataStart    = 1
-	statusClearDelay = 3 * time.Second
+	listHeaderRow       = 0
+	listDataStart       = 1
+	statusClearDelay    = 3 * time.Second
+	autoRefreshInterval = 5 * time.Second
 )
 
 // RunList launches the interactive container browser. Blocks until the user quits.
@@ -62,18 +70,48 @@ func runInteractiveList(p ListParams) error {
 
 	var (
 		lastErr error
-		busy    bool // guards against concurrent Docker ops; only touched on main goroutine
+		busy    bool           // guards concurrent Docker ops; only touched on the main goroutine
+		master  = p.Containers // full, unfiltered container set; the source of truth
+		filter  string         // active case-insensitive filter query
+		auto    bool           // whether background auto-refresh is enabled
 	)
 
 	table := tview.NewTable().SetBorders(false).SetSelectable(true, false)
-	populateTable(table, p.Containers)
+
+	// setContainers updates the master set and redraws the table through the
+	// active filter. Main-goroutine only.
+	setContainers := func(containers []container.Info) {
+		master = containers
+		populateTable(table, filterContainers(master, filter))
+	}
+	setContainers(p.Containers)
 
 	footer := tview.NewTextView().SetDynamicColors(true)
 	footerHints(footer)
 
+	// filterInput is a hidden bar revealed with '/'. Typing filters the table
+	// live; Enter keeps the filter, Esc clears it. Both return focus to the table.
+	filterInput := tview.NewInputField().SetLabel("/ ")
+	filterInput.SetChangedFunc(func(text string) {
+		filter = text
+		populateTable(table, filterContainers(master, filter))
+	})
+
 	mainPage := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(table, 0, 1, true).
+		AddItem(filterInput, 0, 0, false). // hidden until '/'
 		AddItem(footer, 1, 0, false)
+
+	closeFilter := func() {
+		mainPage.ResizeItem(filterInput, 0, 0)
+		app.SetFocus(table)
+	}
+	filterInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEscape {
+			filterInput.SetText("") // ChangedFunc clears filter and repopulates
+		}
+		closeFilter()
+	})
 
 	pages := tview.NewPages().AddPage("main", mainPage, true, true)
 
@@ -99,15 +137,7 @@ func runInteractiveList(p ListParams) error {
 		} else {
 			footer.SetText("[green]✓  " + successMsg)
 		}
-		// Restore hints only if no new op has started by the time the timer fires.
-		go func() {
-			time.Sleep(statusClearDelay)
-			app.QueueUpdateDraw(func() {
-				if !busy {
-					footerHints(footer)
-				}
-			})
-		}()
+		scheduleHintRestore(app, footer, &busy)
 	}
 
 	table.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -127,6 +157,19 @@ func runInteractiveList(p ListParams) error {
 			if row > listDataStart {
 				table.Select(row-1, 0)
 			}
+			return nil
+		case '/':
+			mainPage.ResizeItem(filterInput, 1, 0)
+			app.SetFocus(filterInput)
+			return nil
+		case 'a':
+			auto = !auto
+			if auto {
+				footer.SetText("[green]auto-refresh on (every 5s)")
+			} else {
+				footer.SetText("[yellow]auto-refresh off")
+			}
+			scheduleHintRestore(app, footer, &busy)
 			return nil
 		}
 		if event.Key() == tcell.KeyEscape {
@@ -154,6 +197,45 @@ func runInteractiveList(p ListParams) error {
 			})
 			return nil
 
+		case 'l':
+			if p.OnLogs == nil {
+				return nil
+			}
+			showLogs(app, pages, table, name, p.OnLogs)
+			return nil
+
+		case 'u':
+			if busy || p.OnCopyTo == nil {
+				return nil
+			}
+			showCopyForm(app, pages, table, fmt.Sprintf(" Upload to %q ", name),
+				"Host file", "Container dir", func(hostPath, dstPath string) {
+					if !startOp("Uploading to " + name + "…") {
+						return
+					}
+					go func() {
+						err := p.OnCopyTo(name, hostPath, dstPath)
+						app.QueueUpdateDraw(func() { finishOp("Uploaded to "+name, err) })
+					}()
+				})
+			return nil
+
+		case 'g':
+			if busy || p.OnCopyFrom == nil {
+				return nil
+			}
+			showCopyForm(app, pages, table, fmt.Sprintf(" Download from %q ", name),
+				"Container path", "Host dir", func(srcPath, destDir string) {
+					if !startOp("Downloading from " + name + "…") {
+						return
+					}
+					go func() {
+						err := p.OnCopyFrom(name, srcPath, destDir)
+						app.QueueUpdateDraw(func() { finishOp("Downloaded from "+name, err) })
+					}()
+				})
+			return nil
+
 		case 's':
 			if busy {
 				return nil
@@ -167,7 +249,7 @@ func runInteractiveList(p ListParams) error {
 					app.QueueUpdateDraw(func() {
 						if err == nil {
 							if containers, rerr := p.OnRefresh(); rerr == nil {
-								populateTable(table, containers)
+								setContainers(containers)
 							}
 						}
 						finishOp("Stopped "+name, err)
@@ -191,7 +273,7 @@ func runInteractiveList(p ListParams) error {
 						app.QueueUpdateDraw(func() {
 							if err == nil {
 								if containers, rerr := p.OnRefresh(); rerr == nil {
-									populateTable(table, containers)
+									setContainers(containers)
 								}
 							}
 							finishOp("Destroyed "+name, err)
@@ -221,7 +303,7 @@ func runInteractiveList(p ListParams) error {
 				containers, err := p.OnRefresh()
 				app.QueueUpdateDraw(func() {
 					if err == nil {
-						populateTable(table, containers)
+						setContainers(containers)
 					}
 					finishOp("Refreshed", err)
 				})
@@ -232,7 +314,42 @@ func runInteractiveList(p ListParams) error {
 		return event
 	})
 
-	if err := app.SetRoot(pages, true).EnableMouse(true).Run(); err != nil {
+	// Auto-refresh ticker. The goroutine only handles timing; all state
+	// (auto, busy) is read and mutated on the main goroutine inside
+	// QueueUpdateDraw, so no locking is needed. The actual Docker call runs in a
+	// detached goroutine to avoid blocking the UI, and refreshes silently
+	// (no footer churn) to keep the hint bar intact.
+	stopTicker := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(autoRefreshInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stopTicker:
+				return
+			case <-ticker.C:
+				app.QueueUpdateDraw(func() {
+					if !auto || busy {
+						return
+					}
+					busy = true
+					go func() {
+						containers, err := p.OnRefresh()
+						app.QueueUpdateDraw(func() {
+							busy = false
+							if err == nil {
+								setContainers(containers)
+							}
+						})
+					}()
+				})
+			}
+		}
+	}()
+
+	err := app.SetRoot(pages, true).EnableMouse(true).Run()
+	close(stopTicker)
+	if err != nil {
 		return fmt.Errorf("tui list: %w", err)
 	}
 	return lastErr
@@ -276,7 +393,38 @@ func populateTable(table *tview.Table, containers []container.Info) {
 
 // footerHints sets the key-hint bar in the footer.
 func footerHints(tv *tview.TextView) {
-	tv.SetText("[yellow]↑↓/jk[white] nav  [yellow]e[white]nter  [yellow]s[white]top  [yellow]d[white]estroy  [yellow]b[white]ackup  [yellow]r[white]efresh  [yellow]q[white]uit")
+	tv.SetText("[yellow]jk[white] nav  [yellow]/[white] filter  [yellow]e[white]nter  [yellow]l[white]ogs  [yellow]s[white]top  [yellow]d[white]estroy  [yellow]b[white]ackup  [yellow]u[white]pload  [yellow]g[white]et  [yellow]r[white]efresh  [yellow]a[white]uto  [yellow]q[white]uit")
+}
+
+// scheduleHintRestore restores the footer key-hint bar after statusClearDelay,
+// unless an operation is in flight when the timer fires.
+func scheduleHintRestore(app *tview.Application, footer *tview.TextView, busy *bool) {
+	go func() {
+		time.Sleep(statusClearDelay)
+		app.QueueUpdateDraw(func() {
+			if !*busy {
+				footerHints(footer)
+			}
+		})
+	}()
+}
+
+// filterContainers returns the containers whose name, image, or state contains
+// the query (case-insensitive). An empty query returns the input unchanged.
+func filterContainers(containers []container.Info, query string) []container.Info {
+	query = strings.TrimSpace(strings.ToLower(query))
+	if query == "" {
+		return containers
+	}
+	out := make([]container.Info, 0, len(containers))
+	for _, c := range containers {
+		if strings.Contains(strings.ToLower(c.Name), query) ||
+			strings.Contains(strings.ToLower(c.Image), query) ||
+			strings.Contains(strings.ToLower(c.State), query) {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // showConfirm displays a modal confirmation dialog. focusBack receives focus

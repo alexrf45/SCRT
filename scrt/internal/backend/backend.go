@@ -31,6 +31,9 @@ type Backend interface {
 	ImportBackup(ctx context.Context, p container.ImportParams) error
 	WebExec(ctx context.Context, p container.WebExecParams) (*container.ExecSession, error)
 	ResizeExec(ctx context.Context, p container.ResizeExecParams) error
+	// Logs returns a plain-text stream of the container's logs.
+	// The caller must close the returned ReadCloser.
+	Logs(ctx context.Context, p container.LogParams) (io.ReadCloser, error)
 	// CopyFrom copies a file or directory from the container as a tar stream.
 	// The caller must close the returned ReadCloser.
 	CopyFrom(ctx context.Context, project, srcPath string) (io.ReadCloser, error)
