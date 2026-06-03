@@ -20,6 +20,8 @@ Recon, exploitation, log analysis, tool testing: each starts from the same image
 - Persistent containers, volumes, and workspaces — pick up where you left off
 - Custom Starship prompt with pre-configured Tmux status line
 - Built-in command history with `fzf` for fast filtering (`Ctrl+r`)
+- **Interactive container browser** (`scrt list`) — filter (`/`), live auto-refresh (`a`), view logs (`l`), copy files in/out (`u`/`g`), enter/stop/destroy/backup, plus shell tab-completion of container names
+- **Guided setup & prompts** — `scrt config init` wizard and interactive `pull`/`destroy` prompts
 - **Remote lab mode** — `scrt serve` exposes a REST API and web status dashboard
 - **Environment-agnostic** — auto-detects Docker, containerd, or runc at startup
 

@@ -3,6 +3,7 @@ package tui
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -21,6 +22,12 @@ type ListParams struct {
 	OnDestroy  func(name string) error
 	OnBackup   func(name string) error
 	OnRefresh  func() ([]container.Info, error)
+	// OnLogs returns a plain-text log stream for the named container.
+	OnLogs func(name string) (io.ReadCloser, error)
+	// OnCopyTo uploads a host file into the container at dstPath.
+	OnCopyTo func(name, hostPath, dstPath string) error
+	// OnCopyFrom downloads srcPath from the container into a host directory.
+	OnCopyFrom func(name, srcPath, destDir string) error
 }
 
 const (
@@ -190,6 +197,45 @@ func runInteractiveList(p ListParams) error {
 			})
 			return nil
 
+		case 'l':
+			if p.OnLogs == nil {
+				return nil
+			}
+			showLogs(app, pages, table, name, p.OnLogs)
+			return nil
+
+		case 'u':
+			if busy || p.OnCopyTo == nil {
+				return nil
+			}
+			showCopyForm(app, pages, table, fmt.Sprintf(" Upload to %q ", name),
+				"Host file", "Container dir", func(hostPath, dstPath string) {
+					if !startOp("Uploading to " + name + "…") {
+						return
+					}
+					go func() {
+						err := p.OnCopyTo(name, hostPath, dstPath)
+						app.QueueUpdateDraw(func() { finishOp("Uploaded to "+name, err) })
+					}()
+				})
+			return nil
+
+		case 'g':
+			if busy || p.OnCopyFrom == nil {
+				return nil
+			}
+			showCopyForm(app, pages, table, fmt.Sprintf(" Download from %q ", name),
+				"Container path", "Host dir", func(srcPath, destDir string) {
+					if !startOp("Downloading from " + name + "…") {
+						return
+					}
+					go func() {
+						err := p.OnCopyFrom(name, srcPath, destDir)
+						app.QueueUpdateDraw(func() { finishOp("Downloaded from "+name, err) })
+					}()
+				})
+			return nil
+
 		case 's':
 			if busy {
 				return nil
@@ -347,7 +393,7 @@ func populateTable(table *tview.Table, containers []container.Info) {
 
 // footerHints sets the key-hint bar in the footer.
 func footerHints(tv *tview.TextView) {
-	tv.SetText("[yellow]↑↓/jk[white] nav  [yellow]/[white] filter  [yellow]e[white]nter  [yellow]s[white]top  [yellow]d[white]estroy  [yellow]b[white]ackup  [yellow]r[white]efresh  [yellow]a[white]uto  [yellow]q[white]uit")
+	tv.SetText("[yellow]jk[white] nav  [yellow]/[white] filter  [yellow]e[white]nter  [yellow]l[white]ogs  [yellow]s[white]top  [yellow]d[white]estroy  [yellow]b[white]ackup  [yellow]u[white]pload  [yellow]g[white]et  [yellow]r[white]efresh  [yellow]a[white]uto  [yellow]q[white]uit")
 }
 
 // scheduleHintRestore restores the footer key-hint bar after statusClearDelay,

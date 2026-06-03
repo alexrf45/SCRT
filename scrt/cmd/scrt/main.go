@@ -7,9 +7,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -505,6 +507,28 @@ func newListCmd(ctx context.Context, logger *charmlog.Logger, cfg config.Config)
 				},
 				OnRefresh: func() ([]container.Info, error) {
 					return mgr.List(ctx)
+				},
+				OnLogs: func(name string) (io.ReadCloser, error) {
+					return mgr.Logs(ctx, container.LogParams{Project: name, Tail: "500"})
+				},
+				OnCopyTo: func(name, hostPath, dstPath string) error {
+					data, err := os.ReadFile(hostPath)
+					if err != nil {
+						return fmt.Errorf("read %s: %w", hostPath, err)
+					}
+					tarball, err := container.TarFile(filepath.Base(hostPath), data)
+					if err != nil {
+						return err
+					}
+					return mgr.CopyTo(ctx, name, dstPath, tarball)
+				},
+				OnCopyFrom: func(name, srcPath, destDir string) error {
+					rc, err := mgr.CopyFrom(ctx, name, srcPath)
+					if err != nil {
+						return err
+					}
+					defer rc.Close()
+					return container.UntarTo(rc, destDir)
 				},
 			})
 		},
