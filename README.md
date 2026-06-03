@@ -4,13 +4,13 @@
 ![Docker Image Size](https://img.shields.io/docker/image-size/fonalex45/scrt)
 ![Docker Pulls](https://img.shields.io/docker/pulls/fonalex45/scrt)
 
-> **SCRT** — a disposable, flexible, and repeatable container environment for security researchers, analysts, and enthusiasts.
+> **SCRT** — a disposable, repeatable container environment for security research.
 
 ---
 
 `SCRT` is a containerized security research environment designed for offensive and defensive operations.
 
-Whether it's recon, exploitation, log analysis, or tool testing, `scrt` gives you consistent environments every time. Avoid dependency hell and save countless hours configuring the host OS. `scrt` runs locally, on a remote lab host, or in a Kubernetes cluster.
+Recon, exploitation, log analysis, tool testing: each starts from the same image. No dependency drift between engagements, no host OS to configure. Run it locally, on a remote lab host, or in a Kubernetes cluster.
 
 ---
 
@@ -41,7 +41,7 @@ curl -L https://github.com/alexrf45/SCRT/releases/latest/download/scrt-linux-amd
 chmod +x ~/.local/bin/scrt
 ```
 
-Full release history and changelogs: https://github.com/alexrf45/SCRT/releases
+Full release history and changelogs: <https://github.com/alexrf45/SCRT/releases>
 
 ### Build from source
 
@@ -90,15 +90,15 @@ scrt config        # display current settings
 scrt config edit   # open in $VISUAL / $EDITOR / vi
 ```
 
-| Variable | Description | Default |
-|---|---|---|
-| `SCRT_IMAGE` | Docker image to use | `fonalex45/scrt:latest` |
-| `SCRT_SHELL` | Shell inside container | `/bin/zsh` |
-| `SCRT_HOST_NET` | Set to `false` to disable host networking | `true` |
-| `SCRT_X11` | Set to `false` to disable X11 forwarding | `true` |
-| `SCRT_GPU` | Set to `false` to disable GPU passthrough | `true` |
-| `SCRT_WORKDIR` | Base working directory | current directory |
-| `SCRT_TOKEN` | Bearer token for `scrt serve` API | auto-generated |
+| Variable        | Description                               | Default                 |
+| --------------- | ----------------------------------------- | ----------------------- |
+| `SCRT_IMAGE`    | Docker image to use                       | `fonalex45/scrt:latest` |
+| `SCRT_SHELL`    | Shell inside container                    | `/bin/zsh`              |
+| `SCRT_HOST_NET` | Set to `false` to disable host networking | `true`                  |
+| `SCRT_X11`      | Set to `false` to disable X11 forwarding  | `true`                  |
+| `SCRT_GPU`      | Set to `false` to disable GPU passthrough | `true`                  |
+| `SCRT_WORKDIR`  | Base working directory                    | current directory       |
+| `SCRT_TOKEN`    | Bearer token for `scrt serve` API         | auto-generated          |
 
 ---
 
@@ -127,44 +127,6 @@ internet ──► Caddy :443 (TLS) ──► scrt :8080
 
 Files: [`deploy/compose.yaml`](deploy/compose.yaml), [`deploy/Caddyfile`](deploy/Caddyfile)
 
-### Kubernetes
-
-Deploys `scrt` as a `StatefulSet` on a dedicated, tainted security research
-node with containerd socket passthrough.
-
-> [!WARNING]
-> The k8s manifest uses `privileged: true`. This grants full node access.
-> Deploy only to a **dedicated, tainted** node — never on shared infrastructure.
-
-```bash
-# Label and taint a dedicated node
-kubectl label node <node> role=security-research
-kubectl taint node <node> security-research=:NoSchedule
-
-# Inject token (never commit a real value to secret.yaml)
-kubectl create secret generic scrt-token -n scrt \
-  --from-literal=token=$(openssl rand -hex 32)
-
-# Apply manifests
-kubectl apply -f deploy/k8s/namespace.yaml
-kubectl apply -f deploy/k8s/secret.yaml
-kubectl apply -f deploy/k8s/statefulset.yaml
-kubectl apply -f deploy/k8s/service.yaml
-kubectl apply -f deploy/k8s/ingress.yaml    # requires cert-manager + nginx ingress
-```
-
-Update `deploy/k8s/statefulset.yaml` with the correct containerd socket path
-for your distribution, and replace `lab.yourdomain.com` in
-`deploy/k8s/ingress.yaml` with your domain.
-
-| Distribution | Socket path |
-|---|---|
-| Standard k8s / EKS / GKE / AKS | `/run/containerd/containerd.sock` |
-| k3s | `/run/k3s/containerd/containerd.sock` |
-| Docker-based node | `/var/run/docker.sock` |
-
-Files: [`deploy/k8s/`](deploy/k8s/)
-
 ### Web UI
 
 Navigate to your domain after deployment. Enter the bearer token to connect.
@@ -177,12 +139,12 @@ destroy actions on running containers.
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/) to drive automated semantic versioning via [release-please](https://github.com/googleapis/release-please).
 
-| Prefix | Version bump | When to use |
-|---|---|---|
-| `feat:` | minor | New feature |
-| `fix:` | patch | Bug fix |
-| `feat!:` / `BREAKING CHANGE:` | major | Breaking change |
-| `chore:`, `docs:`, `ci:` | none | No release |
+| Prefix                        | Version bump | When to use     |
+| ----------------------------- | ------------ | --------------- |
+| `feat:`                       | minor        | New feature     |
+| `fix:`                        | patch        | Bug fix         |
+| `feat!:` / `BREAKING CHANGE:` | major        | Breaking change |
+| `chore:`, `docs:`, `ci:`      | none         | No release      |
 
 Merging a `feat:` or `fix:` commit to `main` causes release-please to open a release PR. Merging that PR creates the version tag, which triggers the release pipeline — tests, binary upload, and Docker image push. The pipeline can also be re-triggered manually from **Actions → Release → Run workflow**.
 
