@@ -3,7 +3,7 @@ set -euo pipefail
 
 base_system() {
   sudo apt-get install \
-    -y --no-install-recommends \
+    -y \
     file \
     iputils-ping \
     libpcap0.8
@@ -11,7 +11,7 @@ base_system() {
 
 base_languages() {
   sudo apt-get install \
-    -y --no-install-recommends \
+    -y \
     python3-pip \
     python3-venv \
     ruby \
@@ -21,7 +21,7 @@ base_languages() {
 
 base_tools() {
   sudo apt-get install \
-    -y --no-install-recommends \
+    -y \
     ltrace \
     p7zip-full \
     rlwrap \
@@ -30,7 +30,7 @@ base_tools() {
 
 main_tools() {
   sudo apt-get install \
-    -y --no-install-recommends \
+    -y \
     aria2 \
     bat \
     fastfetch \
@@ -40,7 +40,7 @@ main_tools() {
 
 network() {
   sudo apt-get install -y \
-    --no-install-recommends \
+    \
     braa \
     dnsutils \
     ftp \
@@ -64,7 +64,7 @@ network() {
 
 active_directory() {
   sudo apt-get install -y \
-    --no-install-recommends \
+    \
     bloodhound.py \
     enum4linux-ng \
     evil-winrm \
@@ -75,7 +75,7 @@ active_directory() {
 
 osint_tools() {
   sudo apt-get install -y \
-    --no-install-recommends \
+    \
     cewl \
     csvtool \
     exiflooter \
