@@ -22,7 +22,6 @@ base_languages() {
 base_tools() {
   sudo apt-get install \
     -y --no-install-recommends \
-    hexcurse \
     ltrace \
     p7zip-full \
     rlwrap \
