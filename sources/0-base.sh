@@ -6,7 +6,8 @@ base_system() {
     -y \
     file \
     iputils-ping \
-    libpcap0.8
+    libpcap0.8 \
+    firefox-esr
 }
 
 base_languages() {

@@ -10,6 +10,8 @@ web() {
   (
     cd "$HOME/.tools"
 
+    sudo apt install -y burpsuite
+
     # ffuf — web fuzzer
     wget -q -O ffuf.tgz \
       "https://github.com/ffuf/ffuf/releases/download/v2.1.0/ffuf_2.1.0_linux_amd64.tar.gz"
